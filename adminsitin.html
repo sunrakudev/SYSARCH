@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Current Sit-in - CCS Admin</title>
+    <script>
+        (function() {
+            var admin = localStorage.getItem('ccs_admin_current');
+            if (!admin) { window.location.href = 'adminlogin.html'; }
+        })();
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="admin-body">
+    <header class="admin-header">
+        <div class="header-left">
+            <img src="images/ucmainccslogo.png" alt="UC Logo" class="footer-logo">
+            <h1>College of Computer Studies Admin</h1>
+        </div>
+        <nav class="admin-nav">
+            <a href="admindashboard.html">Home</a>
+            <a href="#" id="nav-search">Search</a>
+            <a href="adminstudents.html">Students</a>
+            <a href="adminsitin.html" class="active">Sit-in</a>
+            <a href="adminrecords.html">View Sit-in Records</a>
+            <a href="adminfeedback.html">Feedback Reports</a>
+            <a href="adminreservation.html">Reservation</a>
+            <a href="adminlabs.html">Lab Management</a>
+            <a href="#" id="admin-logout-btn" class="logout-btn">Log out</a>
+        </nav>
+    </header>
+
+    <main class="admin-main">
+        <section class="admin-page-header">
+            <h2>Walk-in Sit-in Management</h2>
+        </section>
+
+        <section class="admin-info-box">
+            <p><strong>Process:</strong> When a student arrives for a walk-in sit-in, search their ID number below, assign them to an available lab, and approve their session.</p>
+        </section>
+
+        <!-- Search Section -->
+        <section class="admin-search-section compact">
+            <div class="search-container">
+                <label for="admin-sitin-search">Search Student by ID Number:</label>
+                <div class="search-input-group">
+                    <input type="text" id="admin-sitin-search" placeholder="Enter student ID number..." class="admin-search-input">
+                    <button class="btn admin-search-btn" id="admin-search-btn">🔍 Search</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Search Results / Walk-in Sit-in Section (shown after search) -->
+        <section class="admin-sitin-result-section" id="admin-sitin-result-section" style="display: none;">
+            <div class="student-info-panel compact">
+                <h3>Student Information</h3>
+                <div class="student-info-grid compact">
+                    <div class="info-item">
+                        <span class="info-label">ID Number:</span>
+                        <span class="info-value" id="result-id-number"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Name:</span>
+                        <span class="info-value" id="result-name"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Course:</span>
+                        <span class="info-value" id="result-course"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Remaining Sessions:</span>
+                        <span class="info-value" id="result-sessions"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Walk-in Sit-in Form -->
+            <div class="walkin-sitin-panel">
+                <h3>Approve Walk-in Sit-in</h3>
+                <div class="manual-sitin-form">
+                    <div class="form-row">
+                        <select id="manual-sitin-lab" class="manual-lab-select">
+                            <option value="">-- Select Lab --</option>
+                        </select>
+                        <input type="text" id="manual-sitin-purpose" placeholder="Purpose (e.g., Lab Activity)" class="compact-input">
+                        <button class="btn admin-add-btn" id="add-sitin-btn">Approve and Start Session</button>
+                    </div>
+                    <p class="form-hint">Student can now use the lab immediately after approval.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Current Sit-ins Section -->
+        <section class="admin-current-sitin-section compact">
+            <h3>Current Active Sit-ins</h3>
+            <div class="admin-table-container">
+                <table class="admin-data-table" id="sitin-table">
+                    <thead>
+                        <tr>
+                            <th>Sit ID</th>
+                            <th>ID Number</th>
+                            <th>Name</th>
+                            <th>Purpose</th>
+                            <th>Lab</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sitin-table-body">
+                        <!-- Sit-in rows will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- Search Modal -->
+    <div class="admin-modal" id="search-modal">
+        <div class="admin-modal-content search-modal-content">
+            <div class="modal-header">
+                <h3>Search Student</h3>
+                <button class="modal-close" id="search-modal-close">&times;</button>
+            </div>
+            <form id="search-form">
+                <div class="field-group">
+                    <input type="text" id="search-input" placeholder="Search by ID or Name..." required>
+                </div>
+                <button type="submit" class="btn admin-submit-btn">Search</button>
+            </form>
+            <div id="search-results" class="search-results"></div>
+        </div>
+    </div>
+
+    <footer class="footer admin-footer">
+        <img src="images/uclogo.png" alt="UC Logo" class="footer-logo">
+        &copy; Coyoca 2026 Sit-In Monitoring System - Admin Portal. All rights reserved.
+    </footer>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sit-in Monitoring - Register</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-page">
+    <header>
+        <div class="header-left">
+            <img src="images/ucmainccslogo.png" alt="UC Logo" class="footer-logo">
+            <h1>College of Computer Studies Sit-in Monitoring System</h1>
+        </div>
+        <nav>
+            <a href="landingpage.html#home">Home</a>
+            <a href="aboutpage.html">About</a>
+
+            <!-- Profile dropdown container - shown when logged in -->
+            <div class="profile-dropdown-container" id="nav-profile-container" style="display: none;">
+                <div class="profile-bubble" id="profile-bubble">
+                    <img src="" alt="Profile" class="profile-avatar-img" id="profile-avatar-img" style="display: none;">
+                    <span class="profile-avatar" id="profile-avatar">U</span>
+                    <span class="profile-name">User</span>
+                    <span class="profile-arrow">▼</span>
+                </div>
+                <div class="profile-dropdown-menu" id="profile-dropdown">
+                    <div class="dropdown-header">
+                        <img src="" alt="Profile" class="dropdown-avatar-img" id="dropdown-avatar-img" style="display: none;">
+                        <span class="dropdown-avatar" id="dropdown-avatar">U</span>
+                        <div class="dropdown-info">
+                            <span class="dropdown-name">User Name</span>
+                            <span class="dropdown-id">ID Number</span>
+                        </div>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <a href="editprofile.html" class="dropdown-item">
+                        <span class="dropdown-icon">EP</span>
+                        <span>Edit Profile</span>
+                    </a>
+                    <a href="feedbackpage.html" class="dropdown-item">
+                        <span class="dropdown-icon">FB</span>
+                        <span>Feedback</span>
+                    </a>
+                    <a href="#" class="dropdown-item" id="theme-toggle-dropdown">
+                        <span class="dropdown-icon">DM</span>
+                        <span>Dark Mode</span>
+                    </a>
+                    <a href="#" class="dropdown-item" id="logout-btn">
+                        <span class="dropdown-icon">LO</span>
+                        <span>Log Out</span>
+                    </a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="auth-container">
+        <div class="login-box">
+            <div class="auth-topbar">
+                <a href="landingpage.html" class="back-btn">Back</a>
+            </div>
+            <img src="images/ucmainccslogo.png" alt="UC Logo">
+            <h2>Sign Up</h2>
+
+            <form id="registration-form">
+                <div class="form-grid">
+                    <div class="field-group">
+                        <label for="id-number">ID Number</label>
+                        <input id="id-number" name="idNumber" type="text" placeholder="e.g., 2024-00123" required>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="last-name">Last Name</label>
+                        <input id="last-name" name="lastName" type="text" placeholder="Enter Last Name" required>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="first-name">First Name</label>
+                        <input id="first-name" name="firstName" type="text" placeholder="Enter First Name" required>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="middle-name">Middle Name</label>
+                        <input id="middle-name" name="middleName" type="text" placeholder="Enter Middle Name (Optional)">
+                    </div>
+
+                    <div class="field-group">
+                        <label for="email">Email Address</label>
+                        <input id="email" name="email" type="email" placeholder="e.g., student@uc.edu.ph" required>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="password">Password</label>
+                        <div class="password-input-wrapper">
+                            <input id="password" name="password" type="password" placeholder="Min. 6 characters" required minlength="6">
+                            <button type="button" class="password-toggle" data-target="password">👁️</button>
+                        </div>
+                        <div class="password-strength-meter" id="password-strength"></div>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="confirm-password">Confirm Password</label>
+                        <div class="password-input-wrapper">
+                            <input id="confirm-password" name="confirmPassword" type="password" placeholder="Re-enter Password" required>
+                            <button type="button" class="password-toggle" data-target="confirm-password">👁️</button>
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="course">Course</label>
+                        <select id="course" name="course" required>
+                            <option value="" disabled selected>Select Course</option>
+                            <option value="BSIT">Bachelor of Science in Information Technology</option>
+                            <option value="BSCS">Bachelor of Science in Computer Science</option>
+                            <option value="ACT">Associate in Computer Technology</option>
+                        </select>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="course-level">Course Level</label>
+                        <select id="course-level" name="courseLevel" required>
+                            <option value="" disabled selected>Select Year Level</option>
+                            <option value="1">1st Year</option>
+                            <option value="2">2nd Year</option>
+                            <option value="3">3rd Year</option>
+                            <option value="4">4th Year</option>
+                            <!-- Add more levels if needed -->
+                        </select>
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label for="address">Address</label>
+                    <input id="address" name="address" type="text" placeholder="Enter Full Address" required>
+                </div>
+
+                <div class="auth-row">
+                    <label class="check-row">
+                        <input type="checkbox" id="terms-checkbox" required>
+                        <span>I agree to the terms and conditions</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="btn auth-btn">Create Account</button>
+            </form>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <img src="images/uclogo.png" alt="UC Logo" class="footer-logo">
+        &copy; 2026 Sit-In Monitoring System. All rights reserved.
+        <a href="adminlogin.html" class="admin-link">Admin Portal</a>
+    </footer>
+    <script src="script.js"></script>
+</body>
+</html>

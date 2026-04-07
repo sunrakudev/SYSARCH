@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feedback Reports - CCS Admin</title>
+    <script>
+        (function() {
+            var admin = localStorage.getItem('ccs_admin_current');
+            if (!admin) { window.location.href = 'adminlogin.html'; }
+        })();
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="admin-body">
+    <header class="admin-header">
+        <div class="header-left">
+            <img src="images/ucmainccslogo.png" alt="UC Logo" class="footer-logo">
+            <h1>College of Computer Studies Admin</h1>
+        </div>
+        <nav class="admin-nav">
+            <a href="admindashboard.html">Home</a>
+            <a href="#" id="nav-search">Search</a>
+            <a href="adminstudents.html">Students</a>
+            <a href="adminsitin.html">Sit-in</a>
+            <a href="adminrecords.html">View Sit-in Records</a>
+            <a href="adminfeedback.html" class="active">Feedback Reports</a>
+            <a href="adminreservation.html">Reservation</a>
+            <a href="adminlabs.html">Lab Management</a>
+            <a href="#" id="admin-logout-btn" class="logout-btn">Log out</a>
+        </nav>
+    </header>
+
+    <main class="admin-main">
+        <section class="admin-page-header">
+            <h2>Student Feedback Reports</h2>
+            <button class="btn admin-submit-btn" id="export-feedback-btn">Export Reports</button>
+        </section>
+
+        <!-- Feedback Statistics -->
+        <section class="admin-stats-grid">
+            <div class="admin-stat-card">
+                <span class="stat-icon">TF</span>
+                <div class="stat-info">
+                    <span class="stat-value" id="total-feedback">0</span>
+                    <span class="stat-label">Total Feedback</span>
+                </div>
+            </div>
+            <div class="admin-stat-card">
+                <span class="stat-icon">PS</span>
+                <div class="stat-info">
+                    <span class="stat-value" id="pending-feedback">0</span>
+                    <span class="stat-label">Pending Review</span>
+                </div>
+            </div>
+            <div class="admin-stat-card">
+                <span class="stat-icon">RS</span>
+                <div class="stat-info">
+                    <span class="stat-value" id="resolved-feedback">0</span>
+                    <span class="stat-label">Resolved</span>
+                </div>
+            </div>
+            <div class="admin-stat-card">
+                <span class="stat-icon">⭐</span>
+                <div class="stat-info">
+                    <span class="stat-value" id="average-rating">0.0</span>
+                    <span class="stat-label">Avg. Rating</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Filter Section -->
+        <section class="admin-filter-section">
+            <div class="filter-group">
+                <label for="feedback-search">Search</label>
+                <input type="text" id="feedback-search" placeholder="Search by name, ID, or subject...">
+            </div>
+            <div class="filter-group">
+                <label for="feedback-type-filter">Type</label>
+                <select id="feedback-type-filter">
+                    <option value="all">All Types</option>
+                    <option value="complaint">Complaint</option>
+                    <option value="suggestion">Suggestion</option>
+                    <option value="appreciation">Appreciation</option>
+                    <option value="incident">Incident Report</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="feedback-status-filter">Status</label>
+                <select id="feedback-status-filter">
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="closed">Closed</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="feedback-rating-filter">Minimum Rating</label>
+                <select id="feedback-rating-filter">
+                    <option value="0">All Ratings</option>
+                    <option value="1">1+ Stars</option>
+                    <option value="2">2+ Stars</option>
+                    <option value="3">3+ Stars</option>
+                    <option value="4">4+ Stars</option>
+                    <option value="5">5 Stars</option>
+                </select>
+            </div>
+        </section>
+
+        <!-- Feedback List -->
+        <section class="admin-content-section">
+            <div class="feedback-grid" id="feedback-grid">
+                <!-- Feedback cards will be loaded here -->
+            </div>
+            <div id="no-feedback" class="no-data-message" style="display: none;">
+                <p>No feedback submissions found.</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Feedback Details Modal -->
+    <div class="admin-modal" id="feedback-details-modal">
+        <div class="admin-modal-content feedback-modal-content">
+            <div class="modal-header">
+                <h3>Feedback Details</h3>
+                <button class="modal-close" id="feedback-details-close">&times;</button>
+            </div>
+            <div class="feedback-details" id="feedback-details-content">
+                <!-- Details will be populated dynamically -->
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn modal-cancel-btn" id="feedback-close-btn">Close</button>
+                <button type="button" class="btn modal-delete-btn" id="feedback-delete-btn">Delete</button>
+                <button type="button" class="btn admin-submit-btn" id="feedback-resolve-btn">Mark as Resolved</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Response Modal -->
+    <div class="admin-modal" id="feedback-response-modal">
+        <div class="admin-modal-content">
+            <div class="modal-header">
+                <h3>Add Admin Response</h3>
+                <button class="modal-close" id="feedback-response-close">&times;</button>
+            </div>
+            <form id="feedback-response-form">
+                <input type="hidden" id="response-feedback-id">
+                <div class="field-group">
+                    <label for="admin-response">Your Response</label>
+                    <textarea id="admin-response" rows="4" placeholder="Write your response to the student..." required></textarea>
+                </div>
+                <div class="field-group">
+                    <label for="response-status">Update Status</label>
+                    <select id="response-status" required>
+                        <option value="pending">Pending</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="closed">Closed</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn modal-cancel-btn" id="feedback-response-cancel">Cancel</button>
+                    <button type="submit" class="btn admin-submit-btn">Submit Response</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Search Modal -->
+    <div class="admin-modal" id="search-modal">
+        <div class="admin-modal-content search-modal-content">
+            <div class="modal-header">
+                <h3>Search Student</h3>
+                <button class="modal-close" id="search-modal-close">&times;</button>
+            </div>
+            <form id="search-form">
+                <div class="field-group">
+                    <input type="text" id="search-input" placeholder="Search by ID or Name..." required>
+                </div>
+                <button type="submit" class="btn admin-submit-btn">Search</button>
+            </form>
+            <div id="search-results" class="search-results"></div>
+        </div>
+    </div>
+
+    <footer class="footer admin-footer">
+        <img src="images/uclogo.png" alt="UC Logo" class="footer-logo">
+        &copy; Coyoca 2026 Sit-In Monitoring System - Admin Portal. All rights reserved.
+    </footer>
+    <script src="script.js"></script>
+</body>
+</html>

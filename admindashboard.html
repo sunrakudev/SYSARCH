@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - CCS Sit-in Monitoring</title>
+    <script>
+        (function() {
+            var admin = localStorage.getItem('ccs_admin_current');
+            if (!admin) { window.location.href = 'adminlogin.html'; }
+        })();
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="admin-body">
+    <header class="admin-header">
+        <div class="header-left">
+            <img src="images/ucmainccslogo.png" alt="UC Logo" class="footer-logo">
+            <h1>College of Computer Studies Admin</h1>
+        </div>
+        <nav class="admin-nav">
+            <a href="admindashboard.html" class="active">Home</a>
+            <a href="#" id="nav-search">Search</a>
+            <a href="adminstudents.html">Students</a>
+            <a href="adminsitin.html">Sit-in</a>
+            <a href="adminrecords.html">View Sit-in Records</a>
+            <a href="adminfeedback.html">Feedback Reports</a>
+            <a href="adminreservation.html">Reservation</a>
+            <a href="adminlabs.html">Lab Management</a>
+            <a href="#" id="admin-logout-btn" class="logout-btn">Log out</a>
+        </nav>
+    </header>
+
+    <main class="admin-main">
+        <div class="admin-dashboard-grid">
+            <!-- Statistics Panel -->
+            <section class="admin-panel statistics-panel">
+                <div class="panel-header">
+                    <h3>Statistics</h3>
+                </div>
+                <div class="stats-summary">
+                    <a href="adminrecords.html" class="stat-box-link">
+                        <div class="stat-box">
+                            <span class="stat-label">Students Registered:</span>
+                            <span class="stat-value" id="total-students">0</span>
+                        </div>
+                    </a>
+                    <a href="adminrecords.html" class="stat-box-link">
+                        <div class="stat-box">
+                            <span class="stat-label">Currently Sit-In:</span>
+                            <span class="stat-value highlight" id="current-sitin">0</span>
+                        </div>
+                    </a>
+                    <a href="adminrecords.html" class="stat-box-link">
+                        <div class="stat-box">
+                            <span class="stat-label">Total Sit-Ins:</span>
+                            <span class="stat-value" id="total-sitins">0</span>
+                        </div>
+                    </a>
+                </div>
+                <div class="chart-container">
+                    <canvas id="courseChart"></canvas>
+                </div>
+                <div class="course-legend" id="course-legend">
+                    <!-- Course legend items will be added dynamically -->
+                </div>
+            </section>
+
+            <!-- Announcement Panel -->
+            <section class="admin-panel announcement-panel">
+                <div class="panel-header">
+                    <h3>Announcement</h3>
+                </div>
+                <form id="announcementForm">
+                    <div class="field-group">
+                        <label for="announcement-text">New Announcement</label>
+                        <textarea id="announcement-text" rows="4" placeholder="Write your announcement here..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn admin-submit-btn">Submit</button>
+                </form>
+                
+                <div class="announcements-list" id="announcements-list">
+                    <h4>Posted Announcement</h4>
+                    <!-- Announcements will be loaded here -->
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Search Modal -->
+    <div class="admin-modal" id="search-modal">
+        <div class="admin-modal-content search-modal-content">
+            <div class="modal-header">
+                <h3>Search Student</h3>
+                <button class="modal-close" id="search-modal-close">&times;</button>
+            </div>
+            <form id="search-form">
+                <div class="field-group">
+                    <input type="text" id="search-input" placeholder="Search by ID or Name..." required>
+                </div>
+                <button type="submit" class="btn admin-submit-btn">Search</button>
+            </form>
+            <div id="search-results" class="search-results"></div>
+        </div>
+    </div>
+
+    <footer class="footer admin-footer">
+        <img src="images/uclogo.png" alt="UC Logo" class="footer-logo">
+        &copy; Coyoca 2026 Sit-In Monitoring System - Admin Portal. All rights reserved.
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

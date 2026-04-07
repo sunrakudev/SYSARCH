@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Management - CCS Admin</title>
+    <script>
+        (function() {
+            var admin = localStorage.getItem('ccs_admin_current');
+            if (!admin) { window.location.href = 'adminlogin.html'; }
+        })();
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="admin-body">
+    <header class="admin-header">
+        <div class="header-left">
+            <img src="images/ucmainccslogo.png" alt="UC Logo" class="footer-logo">
+            <h1>College of Computer Studies Admin</h1>
+        </div>
+        <nav class="admin-nav">
+            <a href="admindashboard.html">Home</a>
+            <a href="#" id="nav-search">Search</a>
+            <a href="adminstudents.html" class="active">Students</a>
+            <a href="adminsitin.html">Sit-in</a>
+            <a href="adminrecords.html">View Sit-in Records</a>
+            <a href="adminfeedback.html">Feedback Reports</a>
+            <a href="adminreservation.html">Reservation</a>
+            <a href="adminlabs.html">Lab Management</a>
+            <a href="#" id="admin-logout-btn" class="logout-btn">Log out</a>
+        </nav>
+    </header>
+
+    <main class="admin-main">
+        <section class="admin-page-header">
+            <h2>Student Information Database</h2>
+        </section>
+        
+        <section class="admin-info-box">
+            <p><strong>Student Database:</strong> Search for student information and view their pending reservation requests. For walk-in sit-ins, use the <a href="adminsitin.html" style="color: var(--primary-blue);">Sit-in Management</a> page.</p>
+        </section>
+
+        <!-- Reservation Request Section (shown after searching student ID) -->
+        <section class="sitin-request-section" id="sitin-request-section" style="display: none;">
+            <div class="student-info-panel compact">
+                <h3>Student Information</h3>
+                <div class="student-info-grid compact">
+                    <div class="info-item">
+                        <span class="info-label">ID Number:</span>
+                        <span class="info-value" id="sitin-result-id-number"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Name:</span>
+                        <span class="info-value" id="sitin-result-name"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Course:</span>
+                        <span class="info-value" id="sitin-result-course"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Remaining Sessions:</span>
+                        <span class="info-value" id="sitin-result-sessions"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pending Reservation Panel -->
+            <div class="pending-request-panel" id="pending-request-panel" style="display: none;">
+                <h3>Pending Reservation Request</h3>
+                <div class="request-info-grid compact">
+                    <div class="info-item">
+                        <span class="info-label">Reservation ID:</span>
+                        <span class="info-value" id="request-id"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Purpose:</span>
+                        <span class="info-value" id="request-purpose"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Request Time:</span>
+                        <span class="info-value" id="request-time"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Assign Lab:</span>
+                        <select id="request-lab-select" class="lab-assignment-select">
+                            <option value="">-- Select Lab --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="request-actions compact">
+                    <button class="btn btn-approve-request" id="approve-request-btn">Approve and Assign Lab</button>
+                    <button class="btn btn-reject-request" id="reject-request-btn">Reject Request</button>
+                </div>
+            </div>
+
+            <!-- No Pending Reservation Message -->
+            <div class="no-pending-message" id="no-pending-message" style="display: none;">
+                <p>No pending reservation requests for this student.</p>
+                <p class="hint-text">Student can make a reservation from the Reservation page.</p>
+            </div>
+        </section>
+
+        <section class="admin-actions-bar">
+            <div class="action-buttons">
+                <button class="btn admin-add-btn" id="add-student-btn">+ Add Student</button>
+                <button class="btn admin-reset-btn" id="reset-sessions-btn">Reset All Sessions</button>
+            </div>
+            <div class="entries-control">
+                <label for="entries-per-page">Show</label>
+                <select id="entries-per-page">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+                <span>entries per page</span>
+            </div>
+            <div class="search-box">
+                <input type="text" id="student-search" placeholder="Search by ID or Name...">
+            </div>
+        </section>
+
+        <section class="admin-table-container">
+            <table class="admin-data-table" id="students-table">
+                <thead>
+                    <tr>
+                        <th>ID Number</th>
+                        <th>Name</th>
+                        <th>Year Level</th>
+                        <th>Course</th>
+                        <th>Remaining Sessions</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="students-table-body">
+                    <!-- Student rows will be loaded here -->
+                </tbody>
+            </table>
+        </section>
+
+        <section class="admin-pagination" id="students-pagination">
+            <!-- Pagination will be added here -->
+        </section>
+    </main>
+
+    <!-- Add/Edit Student Modal -->
+    <div class="admin-modal" id="student-modal">
+        <div class="admin-modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Add Student</h3>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <form id="student-form">
+                <input type="hidden" id="edit-student-id">
+                <div class="form-grid">
+                    <div class="field-group">
+                        <label for="modal-id-number">ID Number</label>
+                        <input id="modal-id-number" type="text" required>
+                    </div>
+                    <div class="field-group">
+                        <label for="modal-last-name">Last Name</label>
+                        <input id="modal-last-name" type="text" required>
+                    </div>
+                    <div class="field-group">
+                        <label for="modal-first-name">First Name</label>
+                        <input id="modal-first-name" type="text" required>
+                    </div>
+                    <div class="field-group">
+                        <label for="modal-middle-name">Middle Name</label>
+                        <input id="modal-middle-name" type="text">
+                    </div>
+                    <div class="field-group">
+                        <label for="modal-course">Course</label>
+                        <select id="modal-course" required>
+                            <option value="">Select Course</option>
+                            <option value="BSIT">BSIT</option>
+                            <option value="BSCS">BSCS</option>
+                            <option value="BSIS">BSIS</option>
+                            <option value="ACT">ACT</option>
+                            <option value="CpE">Computer Engineering</option>
+                            <option value="CE">Civil Engineering</option>
+                            <option value="ME">Mechanical Engineering</option>
+                            <option value="EE">Electrical Engineering</option>
+                            <option value="IE">Industrial Engineering</option>
+                            <option value="NAME">Naval Architecture and Marine Engineering</option>
+                            <option value="BEEd">Bachelor of Elementary Education</option>
+                            <option value="BSEd">Bachelor of Secondary Education</option>
+                            <option value="CRIM">Criminology</option>
+                            <option value="COMM">Commerce</option>
+                            <option value="ACCT">Accountancy</option>
+                            <option value="HRM">Hotel and Restaurant Management</option>
+                            <option value="CA">Customs Administration</option>
+                            <option value="CS">Computer Secretarial</option>
+                            <option value="IP">Industrial Psychology</option>
+                            <option value="ABPS">AB Political Science</option>
+                            <option value="ABENG">AB English</option>
+                        </select>
+                    </div>
+                    <div class="field-group">
+                        <label for="modal-level">Year Level</label>
+                        <select id="modal-level" required>
+                            <option value="">Select Level</option>
+                            <option value="1">1st Year</option>
+                            <option value="2">2nd Year</option>
+                            <option value="3">3rd Year</option>
+                            <option value="4">4th Year</option>
+                            <option value="5">5th Year</option>
+                        </select>
+                    </div>
+                    <div class="field-group">
+                        <label for="modal-sessions">Remaining Sessions</label>
+                        <input id="modal-sessions" type="number" value="30" min="0">
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn modal-cancel-btn" id="modal-cancel">Cancel</button>
+                    <button type="submit" class="btn admin-submit-btn">Save Student</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Search Modal -->
+    <div class="admin-modal" id="search-modal">
+        <div class="admin-modal-content search-modal-content">
+            <div class="modal-header">
+                <h3>Search Student</h3>
+                <button class="modal-close" id="search-modal-close">&times;</button>
+            </div>
+            <form id="search-form">
+                <div class="field-group">
+                    <input type="text" id="search-input" placeholder="Search by ID or Name..." required>
+                </div>
+                <button type="submit" class="btn admin-submit-btn">Search</button>
+            </form>
+            <div id="search-results" class="search-results"></div>
+        </div>
+    </div>
+
+    <footer class="footer admin-footer">
+        <img src="images/uclogo.png" alt="UC Logo" class="footer-logo">
+        &copy; Coyoca 2026 Sit-In Monitoring System - Admin Portal. All rights reserved.
+    </footer>
+    <script src="script.js"></script>
+</body>
+</html>

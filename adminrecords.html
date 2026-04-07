@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sit-in Records - CCS Admin</title>
+    <script>
+        (function() {
+            var admin = localStorage.getItem('ccs_admin_current');
+            if (!admin) { window.location.href = 'adminlogin.html'; }
+        })();
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="admin-body">
+    <header class="admin-header">
+        <div class="header-left">
+            <img src="images/ucmainccslogo.png" alt="UC Logo" class="footer-logo">
+            <h1>College of Computer Studies Admin</h1>
+        </div>
+        <nav class="admin-nav">
+            <a href="admindashboard.html">Home</a>
+            <a href="#" id="nav-search">Search</a>
+            <a href="adminstudents.html">Students</a>
+            <a href="adminsitin.html">Sit-in</a>
+            <a href="adminrecords.html" class="active">View Sit-in Records</a>
+            <a href="adminfeedback.html">Feedback Reports</a>
+            <a href="adminreservation.html">Reservation</a>
+            <a href="adminlabs.html">Lab Management</a>
+            <a href="#" id="admin-logout-btn" class="logout-btn">Log out</a>
+        </nav>
+    </header>
+
+    <main class="admin-main">
+        <section class="admin-page-header">
+            <h2>Sit-in Records</h2>
+        </section>
+
+        <section class="admin-actions-bar">
+            <div class="action-buttons">
+                <button class="btn admin-export-btn" id="export-records-btn">Export Records</button>
+                <button class="btn admin-clear-btn" id="clear-records-btn">Clear All Records</button>
+            </div>
+            <div class="entries-control">
+                <label for="records-entries-per-page">Show</label>
+                <select id="records-entries-per-page">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+                <span>entries per page</span>
+            </div>
+            <div class="search-box">
+                <input type="text" id="records-search" placeholder="Search by ID, name, or lab...">
+            </div>
+        </section>
+
+        <section class="admin-table-container">
+            <table class="admin-data-table" id="records-table">
+                <thead>
+                    <tr>
+                        <th>Sit ID</th>
+                        <th>Student ID</th>
+                        <th>Name</th>
+                        <th>Lab</th>
+                        <th>Purpose</th>
+                        <th>Start Time</th>
+                        <th>End Time</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="records-table-body">
+                    <!-- Records will be loaded here -->
+                </tbody>
+            </table>
+        </section>
+
+        <section class="admin-pagination" id="records-pagination">
+            <!-- Pagination will be added here -->
+        </section>
+    </main>
+
+    <!-- Search Modal -->
+    <div class="admin-modal" id="search-modal">
+        <div class="admin-modal-content search-modal-content">
+            <div class="modal-header">
+                <h3>Search Student</h3>
+                <button class="modal-close" id="search-modal-close">&times;</button>
+            </div>
+            <form id="search-form">
+                <div class="field-group">
+                    <input type="text" id="search-input" placeholder="Search by ID or Name..." required>
+                </div>
+                <button type="submit" class="btn admin-submit-btn">Search</button>
+            </form>
+            <div id="search-results" class="search-results"></div>
+        </div>
+    </div>
+
+    <footer class="footer admin-footer">
+        <img src="images/uclogo.png" alt="UC Logo" class="footer-logo">
+        &copy; Coyoca 2026 Sit-In Monitoring System - Admin Portal. All rights reserved.
+    </footer>
+    <script src="script.js"></script>
+</body>
+</html>

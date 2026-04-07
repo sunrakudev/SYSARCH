@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lab Management - CCS Admin</title>
+    <script>
+        (function() {
+            var admin = localStorage.getItem('ccs_admin_current');
+            if (!admin) { window.location.href = 'adminlogin.html'; }
+        })();
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="admin-body">
+    <header class="admin-header">
+        <div class="header-left">
+            <img src="images/ucmainccslogo.png" alt="UC Logo" class="footer-logo">
+            <h1>College of Computer Studies Admin</h1>
+        </div>
+        <nav class="admin-nav">
+            <a href="admindashboard.html">Home</a>
+            <a href="#" id="nav-search">Search</a>
+            <a href="adminstudents.html">Students</a>
+            <a href="adminsitin.html">Sit-in</a>
+            <a href="adminrecords.html">View Sit-in Records</a>
+            <a href="adminfeedback.html">Feedback Reports</a>
+            <a href="adminreservation.html">Reservation</a>
+            <a href="adminlabs.html" class="active">Lab Management</a>
+            <a href="#" id="admin-logout-btn" class="logout-btn">Log out</a>
+        </nav>
+    </header>
+
+    <main class="admin-main">
+        <section class="admin-page-header">
+            <h2>Lab Room Management</h2>
+            <button class="btn admin-submit-btn" id="add-lab-btn" style="margin-left: auto;">+ Add Lab Room</button>
+        </section>
+
+        <section class="admin-content-section">
+            <div class="lab-management-grid" id="lab-management-grid">
+                <!-- Lab management cards will be loaded here -->
+            </div>
+        </section>
+
+        <section class="admin-page-header" style="margin-top: 2rem;">
+            <h2>Lab Occupancy Overview</h2>
+        </section>
+
+        <section class="admin-stats-grid">
+            <div class="admin-stat-card">
+                <span class="stat-icon">🏢</span>
+                <div class="stat-info">
+                    <span class="stat-value" id="total-labs">12</span>
+                    <span class="stat-label">Total Labs</span>
+                </div>
+            </div>
+            <div class="admin-stat-card">
+                <span class="stat-icon">AL</span>
+                <div class="stat-info">
+                    <span class="stat-value" id="available-labs">0</span>
+                    <span class="stat-label">Available</span>
+                </div>
+            </div>
+            <div class="admin-stat-card">
+                <span class="stat-icon">SI</span>
+                <div class="stat-info">
+                    <span class="stat-value" id="total-occupancy">0</span>
+                    <span class="stat-label">Total Occupied</span>
+                </div>
+            </div>
+            <div class="admin-stat-card">
+                <span class="stat-icon">MT</span>
+                <div class="stat-info">
+                    <span class="stat-value" id="maintenance-labs">0</span>
+                    <span class="stat-label">Maintenance</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Lab Status Modal -->
+    <div class="admin-modal" id="lab-status-modal">
+        <div class="admin-modal-content">
+            <div class="modal-header">
+                <h3>Update Lab Status</h3>
+                <button class="modal-close" id="lab-modal-close">&times;</button>
+            </div>
+            <form id="lab-status-form">
+                <input type="hidden" id="edit-lab-id">
+                <div class="field-group">
+                    <label>Lab Name</label>
+                    <input type="text" id="lab-name-display" readonly>
+                </div>
+                <div class="field-group">
+                    <label for="lab-status-select">Status</label>
+                    <select id="lab-status-select" required>
+                        <option value="available">Available</option>
+                        <option value="occupied">Full (Occupied)</option>
+                        <option value="maintenance">Maintenance</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label for="lab-capacity">Capacity</label>
+                    <input type="number" id="lab-capacity" min="1" max="100" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn modal-cancel-btn" id="lab-cancel">Cancel</button>
+                    <button type="submit" class="btn admin-submit-btn">Update Status</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add/Edit Lab Modal -->
+    <div class="admin-modal" id="add-lab-modal">
+        <div class="admin-modal-content">
+            <div class="modal-header">
+                <h3 id="add-lab-modal-title">Add New Lab Room</h3>
+                <button class="modal-close" id="add-lab-modal-close">&times;</button>
+            </div>
+            <form id="add-lab-form">
+                <input type="hidden" id="add-edit-lab-id">
+                <div class="field-group">
+                    <label for="add-lab-name">Lab Name</label>
+                    <input type="text" id="add-lab-name" placeholder="e.g., Lab 535" required>
+                </div>
+                <div class="field-group">
+                    <label for="add-lab-capacity">Capacity</label>
+                    <input type="number" id="add-lab-capacity" min="1" max="100" value="40" required>
+                </div>
+                <div class="field-group">
+                    <label for="add-lab-status">Initial Status</label>
+                    <select id="add-lab-status" required>
+                        <option value="available">Available</option>
+                        <option value="maintenance">Maintenance</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn modal-cancel-btn" id="add-lab-cancel">Cancel</button>
+                    <button type="submit" class="btn admin-submit-btn" id="add-lab-submit-btn">Add Lab</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Search Modal -->
+    <div class="admin-modal" id="search-modal">
+        <div class="admin-modal-content search-modal-content">
+            <div class="modal-header">
+                <h3>Search Student</h3>
+                <button class="modal-close" id="search-modal-close">&times;</button>
+            </div>
+            <form id="search-form">
+                <div class="field-group">
+                    <input type="text" id="search-input" placeholder="Search by ID or Name..." required>
+                </div>
+                <button type="submit" class="btn admin-submit-btn">Search</button>
+            </form>
+            <div id="search-results" class="search-results"></div>
+        </div>
+    </div>
+
+    <footer class="footer admin-footer">
+        <img src="images/uclogo.png" alt="UC Logo" class="footer-logo">
+        &copy; Coyoca 2026 Sit-In Monitoring System - Admin Portal. All rights reserved.
+    </footer>
+    <script src="script.js"></script>
+</body>
+</html>
