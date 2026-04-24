@@ -19,7 +19,7 @@
             <a href="#home">Home</a>
             <a href="aboutpage.html">About</a>
 
-            <!-- Profile dropdown container - shown when logged in -->
+            <!-- Profile dropdown - shown when logged in -->
             <div class="profile-dropdown-container" id="nav-profile-container" style="display: none;">
                 <div class="profile-bubble" id="profile-bubble">
                     <img src="" alt="Profile" class="profile-avatar-img" id="profile-avatar-img" style="display: none;">
@@ -37,22 +37,11 @@
                         </div>
                     </div>
                     <div class="dropdown-divider"></div>
-                    <a href="editprofile.html" class="dropdown-item">
-                        <span class="dropdown-icon">EP</span>
-                        <span>Edit Profile</span>
-                    </a>
-                    <a href="feedbackpage.html" class="dropdown-item">
-                        <span class="dropdown-icon">FB</span>
-                        <span>Feedback</span>
-                    </a>
-                    <a href="#" class="dropdown-item" id="theme-toggle-dropdown">
-                        <span class="dropdown-icon">DM</span>
-                        <span>Dark Mode</span>
-                    </a>
-                    <a href="#" class="dropdown-item" id="logout-btn">
-                        <span class="dropdown-icon">LO</span>
-                        <span>Log Out</span>
-                    </a>
+                    <a href="editprofile.html" class="dropdown-item">Edit Profile</a>
+                    <a href="feedbackpage.html" class="dropdown-item">Feedback</a>
+                    <a href="#" class="dropdown-item" id="theme-toggle-dropdown">Dark Mode</a>
+                    <div class="dropdown-divider"></div>
+                    <a href="#" class="dropdown-item dropdown-item-danger" id="logout-btn">Log Out</a>
                 </div>
             </div>
         </nav>
@@ -84,10 +73,18 @@
             </div>
         </section>
 
-        <!-- Logged In View (Dashboard) - Hidden by default -->
+        <!-- Logged In View (Dashboard) -->
         <section class="hero-panel dashboard-panel" id="dashboard" style="display: none;">
-            <p class="eyebrow">Welcome back,</p>
-            <h2 id="user-greeting">Hello, Student!</h2>
+            <div class="dashboard-top">
+                <div class="dashboard-greeting">
+                    <p class="eyebrow">Welcome back</p>
+                    <h2 id="user-greeting">Hello, Student!</h2>
+                </div>
+                <div class="dashboard-actions">
+                    <button class="btn primary-btn" id="make-reservation-btn">Reserve a Lab</button>
+                    <button class="btn btn-outline-white" id="logout-btn-nav">Log Out</button>
+                </div>
+            </div>
             <div class="student-info-card" id="student-info-card">
                 <div class="student-photo-container">
                     <img src="" alt="Profile Photo" class="student-profile-photo" id="student-profile-photo" style="display: none;">
@@ -97,25 +94,35 @@
                     <p class="student-name" id="student-name-display"></p>
                     <p class="student-id-course" id="student-id-course-display"></p>
                     <p class="student-email" id="student-email-display"></p>
-                    <p class="student-sessions" id="student-sessions-display"></p>
                 </div>
-            </div>
-            <div class="hero-actions">
-                <a class="btn primary-btn" href="adminreservation.html" id="make-reservation-btn">Make Reservation</a>
-                <a class="btn" id="logout-btn-nav" href="#">Log Out</a>
+                <div class="student-sessions-badge">
+                    <span class="sessions-count" id="student-sessions-display">30</span>
+                    <span class="sessions-label">sessions left</span>
+                    <div class="sessions-bar-wrap">
+                        <div class="sessions-bar" id="sessions-bar"></div>
+                    </div>
+                </div>
+                <div class="notif-bell-container" id="notif-bell-container" style="display: none;">
+                    <button class="notif-bell-btn" id="notif-bell-btn" aria-label="Notifications">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                        </svg>
+                        <span class="notif-count" id="notif-count" style="display: none;">0</span>
+                    </button>
+                    <div class="notif-dropdown" id="notif-dropdown">
+                        <div class="notif-dropdown-header">Notifications</div>
+                        <div class="notif-list" id="notif-list">
+                            <p class="notif-empty">No notifications yet.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
-        <!-- Combined Content Grid for Logged In Users -->
+        <!-- Content Grid for Logged In Users -->
         <div class="content-grid" id="content-grid" style="display: none;">
-            <!-- Announcements Section -->
-            <section class="announcements-section" id="announcements-section">
-                <h3 class="section-title">Announcements</h3>
-                <div class="announcements-placeholder">
-                </div>
-            </section>
-
-            <!-- Rules and Regulations Section -->
+            <!-- Rules and Regulations -->
             <section class="rules-section" id="rules-section">
                 <h3 class="section-title">Rules and Regulations</h3>
                 <div class="rules-content">
@@ -177,9 +184,29 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Right Column -->
+            <div class="right-column">
+                <!-- Announcements -->
+                <section class="announcements-section" id="announcements-section">
+                    <h3 class="section-title">Announcements</h3>
+                    <div class="announcements-placeholder"></div>
+                </section>
+
+                <!-- Sit-in History -->
+                <section class="history-section" id="history-section">
+                    <div class="section-header-row">
+                        <h3 class="section-title">Recent Sit-in History</h3>
+                        <button type="button" class="history-feedback-btn" id="open-feedback-btn">Leave Feedback</button>
+                    </div>
+                    <div class="history-list" id="history-list">
+                        <p class="no-history-msg">No sit-in history yet.</p>
+                    </div>
+                </section>
+            </div>
         </div>
 
-        <!-- Features Section (shown when logged out) -->
+        <!-- Features Section (logged out) -->
         <section class="features-section" id="features-section">
             <h3 class="section-title">Why Use Sit-in Monitoring?</h3>
             <div class="features-grid">
@@ -187,7 +214,7 @@
                     <div class="feature-icon">RT</div>
                     <h4>Real-time Tracking</h4>
                     <p>Monitor lab occupancy and student attendance in real-time with instant updates.</p>
-                </div>
+                </div>  
                 <div class="feature-card">
                     <div class="feature-icon">ES</div>
                     <h4>Easy Scheduling</h4>
@@ -212,6 +239,71 @@
         &copy; Coyoca 2026 Sit-In Monitoring System. All rights reserved.
         <a href="adminlogin.html" class="admin-link">Admin Portal</a>
     </footer>
+
+    <!-- Reserve Lab Modal -->
+    <div class="user-modal" id="reserve-modal">
+        <div class="user-modal-content">
+            <div class="user-modal-header">
+                <h3>Reserve a Lab</h3>
+                <button class="user-modal-close" id="reserve-modal-close">&times;</button>
+            </div>
+            <form id="reserve-form">
+                <div class="field-group">
+                    <label for="reserve-lab">Select Lab</label>
+                    <select id="reserve-lab" required>
+                        <option value="">-- Choose an available lab --</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label for="reserve-purpose">Purpose</label>
+                    <input type="text" id="reserve-purpose" placeholder="e.g., Lab Activity, Research, Project Work" required>
+                </div>
+                <div class="field-group">
+                    <label for="reserve-notes">Additional Notes <span class="optional-label">(optional)</span></label>
+                    <textarea id="reserve-notes" rows="2" placeholder="Any additional details..."></textarea>
+                </div>
+                <p class="form-hint-modal">Your request will be sent to the admin for approval. You will be notified once it is reviewed.</p>
+                <div class="user-modal-actions">
+                    <button type="button" class="btn btn-ghost" id="reserve-modal-cancel">Cancel</button>
+                    <button type="submit" class="btn primary-btn">Submit Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Sit-in Feedback Modal -->
+    <div class="user-modal" id="sitin-feedback-modal">
+        <div class="user-modal-content user-modal-sm">
+            <div class="user-modal-header">
+                <h3>Leave Feedback</h3>
+                <button class="user-modal-close" id="sitin-feedback-close">&times;</button>
+            </div>
+            <form id="sitin-feedback-form">
+                <input type="hidden" id="feedback-sitin-id">
+                <input type="hidden" id="feedback-sitin-lab">
+                <div class="field-group">
+                    <label>Rating</label>
+                    <div class="star-rating" id="star-rating">
+                        <span class="star" data-val="1">&#9733;</span>
+                        <span class="star" data-val="2">&#9733;</span>
+                        <span class="star" data-val="3">&#9733;</span>
+                        <span class="star" data-val="4">&#9733;</span>
+                        <span class="star" data-val="5">&#9733;</span>
+                    </div>
+                    <input type="hidden" id="feedback-rating" value="0">
+                </div>
+                <div class="field-group">
+                    <label for="feedback-message">Your Feedback</label>
+                    <textarea id="feedback-message" rows="3" placeholder="Share your experience in this session..." required></textarea>
+                </div>
+                <div class="user-modal-actions">
+                    <button type="button" class="btn btn-ghost" id="sitin-feedback-cancel">Cancel</button>
+                    <button type="submit" class="btn primary-btn">Submit Feedback</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>

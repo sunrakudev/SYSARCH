@@ -816,16 +816,11 @@ function updateNavForLoggedInUser() {
                     e.stopPropagation();
                     profileDropdown.classList.toggle('show');
 
-                    // Update theme toggle icon when opening
+                    // Update theme toggle text when opening
                     const themeBtn = document.getElementById('theme-toggle-dropdown');
                     if (themeBtn) {
-                        const icon = themeBtn.querySelector('.dropdown-icon');
-                        const text = themeBtn.querySelector('span:last-child');
                         const currentTheme = document.documentElement.getAttribute('data-theme');
-                        if (icon && text) {
-                            icon.textContent = currentTheme === 'dark' ? 'LT' : 'DK';
-                            text.textContent = currentTheme === 'dark' ? 'Light Mode' : 'Dark Mode';
-                        }
+                        themeBtn.textContent = currentTheme === 'dark' ? 'Light Mode' : 'Dark Mode';
                     }
                 });
 
@@ -851,14 +846,8 @@ function updateNavForLoggedInUser() {
                 themeToggleBtn.addEventListener('click', function(e) {
                     e.preventDefault();
                     toggleTheme();
-                    // Update icon
-                    const icon = this.querySelector('.dropdown-icon');
-                    const text = this.querySelector('span:last-child');
                     const currentTheme = document.documentElement.getAttribute('data-theme');
-                    if (icon && text) {
-                        icon.textContent = currentTheme === 'dark' ? 'LT' : 'DK';
-                        text.textContent = currentTheme === 'dark' ? 'Light Mode' : 'Dark Mode';
-                    }
+                    this.textContent = currentTheme === 'dark' ? 'Light Mode' : 'Dark Mode';
                 });
             }
 
@@ -923,10 +912,20 @@ function updateLandingPageForLoggedInUser() {
     if (studentName) studentName.textContent = `${user.firstName} ${user.lastName}`;
     if (studentIdCourse) studentIdCourse.textContent = `${user.idNumber} | ${user.course} - ${user.courseLevel}${getYearSuffix(user.courseLevel)} Year`;
     if (studentEmail) studentEmail.textContent = fullUser?.email || 'No email provided';
+    const remainingSessions = fullUser?.remainingSessions ?? 30;
     if (studentSessions) {
-        const remainingSessions = fullUser?.remainingSessions || 30;
-        studentSessions.textContent = `Remaining Sessions: ${remainingSessions} / 30`;
+        studentSessions.textContent = remainingSessions;
     }
+
+    // Update sessions progress bar
+    const sessionsBar = document.getElementById('sessions-bar');
+    if (sessionsBar) {
+        const pct = Math.max(0, Math.min(100, (remainingSessions / 30) * 100));
+        sessionsBar.style.width = pct + '%';
+    }
+
+    // Populate sit-in history
+    loadStudentSitinHistory(user.idNumber);
 
     // Handle profile photo
     if (fullUser?.profilePhoto) {
@@ -957,15 +956,300 @@ function updateLandingPageForLoggedInUser() {
         });
     }
 
-    // Add make reservation button handler
+    // Reserve a lab modal
     const makeReservationBtn = document.getElementById('make-reservation-btn');
     if (makeReservationBtn && !makeReservationBtn.dataset.hasListener) {
         makeReservationBtn.dataset.hasListener = 'true';
-        makeReservationBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            window.location.href = 'adminreservation.html';
+        makeReservationBtn.addEventListener('click', function() {
+            openReserveModal(user);
         });
     }
+
+    // Notification bell
+    initNotificationBell(user.idNumber);
+}
+
+// ============================================
+// Reserve Lab Modal (Landing Page)
+// ============================================
+
+function openReserveModal(user) {
+    const modal = document.getElementById('reserve-modal');
+    const labSelect = document.getElementById('reserve-lab');
+    if (!modal || !labSelect) return;
+
+    // Populate labs (exclude closed/maintenance)
+    const labs = getLabRooms().filter(l => l.status !== 'maintenance' && l.status !== 'closed');
+    labSelect.innerHTML = '<option value="">-- Choose an available lab --</option>';
+    if (labs.length === 0) {
+        labSelect.innerHTML = '<option value="" disabled>No labs available right now</option>';
+    } else {
+        labs.forEach(lab => {
+            const opt = document.createElement('option');
+            opt.value = lab.id;
+            const statusNote = lab.status === 'available' ? '' : ` — ${lab.status}`;
+            opt.textContent = `${lab.name} (Cap: ${lab.capacity || 'N/A'}${statusNote})`;
+            labSelect.appendChild(opt);
+        });
+    }
+
+    modal.style.display = 'flex';
+    document.getElementById('reserve-purpose').value = '';
+    document.getElementById('reserve-notes').value = '';
+
+    // Close handlers
+    const closeBtn = document.getElementById('reserve-modal-close');
+    const cancelBtn = document.getElementById('reserve-modal-cancel');
+    const closeModal = () => { modal.style.display = 'none'; };
+    closeBtn.onclick = closeModal;
+    cancelBtn.onclick = closeModal;
+    modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+
+    // Form submit
+    const form = document.getElementById('reserve-form');
+    form.onsubmit = function(e) {
+        e.preventDefault();
+        const selectedLabId = labSelect.value;
+        const selectedLab = getLabRooms().find(l => l.id === selectedLabId);
+        const purpose = document.getElementById('reserve-purpose').value.trim();
+        const notes = document.getElementById('reserve-notes').value.trim();
+
+        if (!selectedLabId) { showMessage('Please select a lab.', 'error'); return; }
+        if (!purpose) { showMessage('Please enter a purpose.', 'error'); return; }
+
+        const users = getUsers();
+        const fullUser = users.find(u => u.idNumber === user.idNumber);
+
+        const result = addReservation({
+            studentId: user.idNumber,
+            studentName: `${user.firstName} ${user.lastName}`,
+            lab: selectedLab?.name || selectedLabId,
+            date: new Date().toISOString().split('T')[0],
+            startTime: null,
+            endTime: null,
+            purpose,
+            notes
+        });
+
+        if (result.success) {
+            closeModal();
+            showMessage('Reservation request submitted! Admin will review it shortly.', 'success');
+        } else {
+            showMessage('Failed to submit request. Please try again.', 'error');
+        }
+    };
+}
+
+// ============================================
+// Notification Bell (Landing Page)
+// ============================================
+
+function getNotifReadIds() {
+    const data = localStorage.getItem('ccs_notif_read');
+    return data ? JSON.parse(data) : [];
+}
+
+function markNotifRead(ids) {
+    const existing = getNotifReadIds();
+    const merged = [...new Set([...existing, ...ids])];
+    localStorage.setItem('ccs_notif_read', JSON.stringify(merged));
+}
+
+function getStudentNotifications(studentId) {
+    const reservations = getReservations().filter(r => r.studentId === studentId);
+    const notifs = [];
+    reservations.forEach(r => {
+        if (r.status === 'approved') {
+            notifs.push({ id: 'res-' + r.id, type: 'success', message: `Your reservation for ${r.lab} was approved.`, time: r.reviewedAt || r.createdAt });
+        } else if (r.status === 'rejected') {
+            notifs.push({ id: 'res-' + r.id, type: 'error', message: `Your reservation for ${r.lab} was rejected.`, time: r.reviewedAt || r.createdAt });
+        }
+    });
+    return notifs.sort((a, b) => new Date(b.time) - new Date(a.time));
+}
+
+function initNotificationBell(studentId) {
+    const bellContainer = document.getElementById('notif-bell-container');
+    const bellBtn = document.getElementById('notif-bell-btn');
+    const bellDropdown = document.getElementById('notif-dropdown');
+    const notifList = document.getElementById('notif-list');
+    const notifCount = document.getElementById('notif-count');
+    if (!bellContainer || !bellBtn) return;
+
+    bellContainer.style.display = 'flex';
+
+    function renderNotifs() {
+        const notifs = getStudentNotifications(studentId);
+        const readIds = getNotifReadIds();
+        const unread = notifs.filter(n => !readIds.includes(n.id));
+
+        if (unread.length > 0) {
+            notifCount.textContent = unread.length;
+            notifCount.style.display = 'flex';
+        } else {
+            notifCount.style.display = 'none';
+        }
+
+        if (notifs.length === 0) {
+            notifList.innerHTML = '<p class="notif-empty">No notifications yet.</p>';
+            return;
+        }
+
+        notifList.innerHTML = notifs.map(n => {
+            const isUnread = !readIds.includes(n.id);
+            const timeStr = n.time ? new Date(n.time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+            return `<div class="notif-item ${isUnread ? 'notif-unread' : ''} notif-type-${n.type}">
+                <span class="notif-dot"></span>
+                <div class="notif-body">
+                    <p class="notif-msg">${n.message}</p>
+                    <span class="notif-time">${timeStr}</span>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    renderNotifs();
+
+    bellBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const isOpen = bellDropdown.classList.toggle('show');
+        if (isOpen) {
+            const notifs = getStudentNotifications(studentId);
+            markNotifRead(notifs.map(n => n.id));
+            renderNotifs();
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!bellContainer.contains(e.target)) {
+            bellDropdown.classList.remove('show');
+        }
+    });
+}
+
+// ============================================
+// Student Sit-in History (Landing Page)
+// ============================================
+
+function loadStudentSitinHistory(studentIdNumber) {
+    const historyList = document.getElementById('history-list');
+    if (!historyList) return;
+
+    // Wire the top-level feedback button regardless of history state
+    const openFeedbackBtn = document.getElementById('open-feedback-btn');
+    if (openFeedbackBtn && !openFeedbackBtn.dataset.hasListener) {
+        openFeedbackBtn.dataset.hasListener = 'true';
+        openFeedbackBtn.addEventListener('click', () => {
+            openSitinFeedbackModal('', '', studentIdNumber);
+        });
+    }
+
+    const records = getSitInRecords().map(r => ({ ...r, status: r.status || 'completed' }));
+    const active = getCurrentSitIns().map(s => ({ ...s, status: 'active' }));
+    const allSitins = [...active, ...records];
+    const dedupedSitins = Array.from(
+        new Map(
+            allSitins.map(s => {
+                const dedupeKey = s.id ?? `${s.idNumber}-${s.lab}-${s.startTime}`;
+                return [dedupeKey, s];
+            })
+        ).values()
+    );
+    const studentHistory = dedupedSitins
+        .filter(s => s.idNumber === studentIdNumber)
+        .sort((a, b) => new Date(b.startTime) - new Date(a.startTime))
+        .slice(0, 8);
+
+    if (studentHistory.length === 0) {
+        historyList.innerHTML = '<p class="no-history-msg">No sit-in history yet.</p>';
+        return;
+    }
+
+    historyList.innerHTML = studentHistory.map(entry => {
+        const statusClass = entry.status === 'active' ? 'status-active' : 'status-completed';
+        const startDate = entry.startTime ? new Date(entry.startTime) : null;
+        const dateStr = startDate ? startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A';
+        const timeStr = startDate ? startDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
+        const initials = (entry.lab || 'L').substring(0, 2).toUpperCase();
+
+        return `
+            <div class="history-entry ${statusClass}">
+                <div class="history-entry-icon">${initials}</div>
+                <div class="history-entry-info">
+                    <span class="history-entry-lab">${entry.lab || 'Unknown Lab'}</span>
+                    <span class="history-entry-purpose">${entry.purpose || 'General'}</span>
+                </div>
+                <div class="history-entry-meta">
+                    <span class="history-entry-date">${dateStr}</span>
+                    <span class="history-entry-time">${timeStr}</span>
+                </div>
+                <span class="status-badge status-${entry.status || 'completed'}">${entry.status === 'active' ? 'Active' : 'Done'}</span>
+            </div>`;
+    }).join('');
+
+}
+
+function openSitinFeedbackModal(sitinId, lab, studentIdNumber) {
+    const modal = document.getElementById('sitin-feedback-modal');
+    if (!modal) return;
+
+    document.getElementById('feedback-sitin-id').value = sitinId;
+    document.getElementById('feedback-sitin-lab').value = lab;
+    document.getElementById('feedback-message').value = '';
+    document.getElementById('feedback-rating').value = '0';
+
+    // Reset stars
+    document.querySelectorAll('#star-rating .star').forEach(s => s.classList.remove('active'));
+
+    modal.style.display = 'flex';
+
+    const close = () => { modal.style.display = 'none'; };
+    document.getElementById('sitin-feedback-close').onclick = close;
+    document.getElementById('sitin-feedback-cancel').onclick = close;
+    modal.onclick = (e) => { if (e.target === modal) close(); };
+
+    // Star rating interaction
+    const stars = document.querySelectorAll('#star-rating .star');
+    stars.forEach(star => {
+        star.addEventListener('click', function() {
+            const val = parseInt(this.dataset.val);
+            document.getElementById('feedback-rating').value = val;
+            stars.forEach((s, i) => s.classList.toggle('active', i < val));
+        });
+        star.addEventListener('mouseenter', function() {
+            const val = parseInt(this.dataset.val);
+            stars.forEach((s, i) => s.classList.toggle('hover', i < val));
+        });
+        star.addEventListener('mouseleave', function() {
+            stars.forEach(s => s.classList.remove('hover'));
+        });
+    });
+
+    // Submit
+    const form = document.getElementById('sitin-feedback-form');
+    form.onsubmit = function(e) {
+        e.preventDefault();
+        const user = getCurrentUser();
+        const users = getUsers();
+        const fullUser = users.find(u => u.idNumber === studentIdNumber);
+        const message = document.getElementById('feedback-message').value.trim();
+        const rating = parseInt(document.getElementById('feedback-rating').value) || 0;
+
+        if (!message) { showMessage('Please enter your feedback.', 'error'); return; }
+
+        addFeedback({
+            studentId: studentIdNumber,
+            studentName: user ? `${user.firstName} ${user.lastName}` : studentIdNumber,
+            email: fullUser?.email || '',
+            type: 'sit-in',
+            subject: lab ? `Sit-in Feedback - ${lab}` : 'Sit-in Feedback',
+            message,
+            rating
+        });
+
+        close();
+        showMessage('Feedback submitted successfully!', 'success');
+    };
 }
 
 // ============================================
@@ -1134,15 +1418,9 @@ function toggleTheme() {
 }
 
 function updateThemeIcon(theme) {
-    // Update theme toggle icon in dropdown if it exists
     const themeBtn = document.getElementById('theme-toggle-dropdown');
     if (themeBtn) {
-        const icon = themeBtn.querySelector('.dropdown-icon');
-        const text = themeBtn.querySelector('span:last-child');
-        if (icon && text) {
-            icon.textContent = theme === 'dark' ? 'LT' : 'DK';
-            text.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
-        }
+        themeBtn.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
     }
 }
 
@@ -1632,17 +1910,9 @@ function initAdminStudents() {
             }
 
             const admin = getCurrentAdmin();
-            const result = approveReservation(reservationId, admin?.name || 'Admin');
+            const result = approveReservation(reservationId, admin?.name || 'Admin', { lab: selectedLab });
             if (result.success) {
-                // Update the reservation with the assigned lab
-                const reservations = getReservations();
-                const resIndex = reservations.findIndex(r => r.id === reservationId);
-                if (resIndex !== -1) {
-                    reservations[resIndex].lab = selectedLab;
-                    saveReservations(reservations);
-                }
-                
-                showMessage('Reservation approved!', 'success');
+                showMessage(result.message || 'Reservation approved!', 'success');
                 const idNumber = document.getElementById('sitin-result-id-number')?.textContent;
                 if (idNumber) searchStudentForSitInStudentsPage(idNumber);
                 loadStudentsTable();
@@ -3268,12 +3538,69 @@ function deleteReservation(id) {
     return { success: true };
 }
 
-function approveReservation(id, adminName) {
-    return updateReservation(id, {
+function approveReservation(id, adminName, options = {}) {
+    const reservations = getReservations();
+    const reservation = reservations.find(r => r.id === id);
+    if (!reservation) {
+        return { success: false, message: 'Reservation not found.' };
+    }
+    if (reservation.status !== 'pending') {
+        return { success: false, message: 'Only pending reservations can be approved.' };
+    }
+
+    const assignedLab = options.lab || reservation.lab;
+    if (!assignedLab) {
+        return { success: false, message: 'Please assign a lab before approving.' };
+    }
+
+    const user = getUsers().find(u => u.idNumber === reservation.studentId);
+    if (user && (user.remainingSessions || 0) <= 0) {
+        return { success: false, message: 'Student has no remaining sessions.' };
+    }
+
+    const updated = updateReservation(id, {
         status: 'approved',
+        lab: assignedLab,
         reviewedAt: new Date().toISOString(),
         reviewedBy: adminName
     });
+
+    if (!updated.success) return updated;
+
+    const existingActive = getStudentCurrentSitIn(reservation.studentId);
+    if (existingActive) {
+        return {
+            success: true,
+            reservation: updated.reservation,
+            sitInStarted: false,
+            message: 'Reservation approved, but student already has an active sit-in.'
+        };
+    }
+
+    const sitInData = {
+        id: Date.now(),
+        sitIdNumber: 'SIT-' + Date.now().toString().slice(-6),
+        idNumber: reservation.studentId,
+        name: reservation.studentName || (user ? `${user.firstName} ${user.lastName}` : reservation.studentId),
+        purpose: reservation.purpose || 'Reservation',
+        lab: assignedLab,
+        session: 1,
+        status: 'active',
+        startTime: new Date().toISOString(),
+        reservationId: reservation.id
+    };
+
+    const sitInResult = addSitIn(sitInData);
+    if (!sitInResult.success) {
+        return { success: false, message: 'Reservation approved, but failed to start sit-in.' };
+    }
+
+    return {
+        success: true,
+        reservation: updated.reservation,
+        sitInStarted: true,
+        message: 'Reservation approved and sit-in started.'
+    };
 }
 
 function rejectReservation(id, adminName, reason = '') {
@@ -3510,7 +3837,7 @@ function initAdminReservation() {
                 detailsModal.style.display = 'none';
                 loadReservationsTable();
                 loadReservationStats();
-                showMessage('Reservation approved!', 'success');
+                showMessage(result.message || 'Reservation approved!', 'success');
             }
         });
     }
@@ -3619,8 +3946,8 @@ function loadReservationsTable() {
                 <td><span class="status-badge ${statusClass}">${r.status}</span></td>
                 <td class="actions-cell">
                     <button class="btn-view-reservation" data-id="${r.id}">View</button>
-                    ${r.status === 'pending' ? `<button class="btn-approve-reservation" data-id="${r.id}">✓</button>` : ''}
-                    ${r.status === 'pending' ? `<button class="btn-reject-reservation" data-id="${r.id}">✗</button>` : ''}
+                    ${r.status === 'pending' ? `<button class="btn-approve-reservation" data-id="${r.id}">Approve</button>` : ''}
+                    ${r.status === 'pending' ? `<button class="btn-reject-reservation" data-id="${r.id}">Reject</button>` : ''}
                 </td>
             </tr>
         `;
@@ -3642,7 +3969,7 @@ function loadReservationsTable() {
             if (result.success) {
                 loadReservationsTable();
                 loadReservationStats();
-                showMessage('Reservation approved!', 'success');
+                showMessage(result.message || 'Reservation approved!', 'success');
             }
         });
     });
@@ -4292,3 +4619,4 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Current User:', getCurrentUser());
     console.log('Is Logged In:', isLoggedIn());
 });
+
