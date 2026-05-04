@@ -1,0 +1,86 @@
+Inspect this static HTML/CSS/JS project first before editing. Follow the existing structure, styling, and localStorage-based data flow.
+
+Main files to check:
+- admindashboard.html
+- landingpage.html
+- adminreservation.html
+- adminlabs.html
+- adminrecords.html
+- adminsitin.html
+- adminfeedback.html
+- adminstudents.html
+- style.css
+- script.js
+
+Admin dashboard requirements:
+- Update the admin dashboard so it clearly includes:
+  - Generate Reports
+  - View Reservations
+  - Leaderboard
+  - Analytics
+- Use dashboard cards, quick links, or summary panels consistent with the current admin UI.
+- Link “View Reservations” to the existing reservation page.
+- Use the existing sit-in records/export functionality for “Generate Reports” if possible.
+- Add analytics using existing data such as total students, active sit-ins, completed sit-ins, reservations, lab usage, and feedback.
+- Add a leaderboard based on useful existing data, such as most sit-in sessions or total sit-in duration.
+
+Student dashboard requirements:
+- Update the logged-in student dashboard in landingpage.html.
+- Add or improve sections for:
+  - Reservation
+  - Software Availability / Lab Availability
+  - User Sit-In Summary
+  - Session Table
+  - Disable / Enable Reservation
+
+User Sit-In Summary should show:
+- Total sit-in hours
+- Number of sessions
+- Average session duration
+- Longest session
+
+Session Table columns:
+- Date
+- Time-in
+- Time-out
+- Duration
+- PC No.
+- Status
+
+Reservation control:
+- Add a clear disable/enable reservation control.
+- Make the current reservation state visually obvious.
+- If reservation is disabled, disable or hide the student reservation submission action and show a clear status message.
+- Store the reservation enabled/disabled state in localStorage so it persists.
+
+Bug fixes to check and address:
+- script.js references adminreports.html, but that file does not exist in the folder. Either create the missing page or remove/redirect that initialization safely.
+- Fix mojibake/broken characters in UI text/icons, such as corrupted symbols like â, ð, or similar encoding artifacts.
+- Add safe JSON parsing for localStorage reads so corrupted localStorage data does not crash the app.
+- Avoid injecting user-provided values directly with innerHTML where possible. Use textContent or escaping helpers for student names, purposes, notes, announcements, feedback, and reservation details.
+- Reservation approval currently starts a sit-in immediately. Review whether approval should only approve the request or also start an active sit-in, then make the UI behavior clear.
+- Student reservation currently saves date as today and time fields as null. Improve this by letting students choose date/time or make the admin workflow clearly assign date/time.
+- Prevent duplicate active sit-ins or duplicate pending reservations for the same student.
+- Validate reservation time ranges so end time cannot be before start time.
+- Ensure lab availability respects maintenance/closed/full labs consistently.
+- Make generated IDs more collision-resistant than plain Date.now() if multiple records are created quickly.
+- Improve CSV export escaping so commas, quotes, and newlines in names/purposes/notes export correctly.
+- Fix pagination so records/reports can move between pages instead of only showing page 1.
+
+Quality-of-life improvements:
+- Add search/filter/sort where useful for reservations, reports, leaderboard, and session history.
+- Add empty states for no reservations, no sessions, no labs, and no leaderboard data.
+- Add loading-safe/default states so missing data does not show broken UI.
+- Add confirmation dialogs for destructive actions like clearing records.
+- Add success/error messages after enabling/disabling reservations, exporting reports, approving/rejecting reservations, and ending sessions.
+- Make tables responsive on mobile.
+- Keep navigation labels consistent across admin pages.
+- Reuse existing CSS classes where possible and add new CSS only when needed.
+- Keep layout professional, clean, and consistent with the current design.
+
+After editing:
+- Summarize changed files.
+- Explain what was added.
+- Mention any bug fixes completed.
+- Mention anything not implemented and why.
+- Test by opening the affected HTML pages and checking the browser console for JavaScript errors.
