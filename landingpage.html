@@ -122,85 +122,143 @@
 
         <!-- Content Grid for Logged In Users -->
         <div class="content-grid" id="content-grid" style="display: none;">
-            <!-- Rules and Regulations -->
-            <section class="rules-section" id="rules-section">
-                <h3 class="section-title">Rules and Regulations</h3>
-                <div class="rules-content">
-                    <div class="rule-item">
-                        <span class="rule-icon">1</span>
-                        <div>
-                            <h4>Session Limit</h4>
-                            <p>Each student is allocated 30 sit-in sessions per semester.</p>
+            <!-- Left Column -->
+            <div class="left-column-stack">
+                <!-- Rules and Regulations -->
+                <section class="rules-section" id="rules-section">
+                    <h3 class="section-title">Rules and Regulations</h3>
+                    <div class="rules-content">
+                        <div class="rule-item">
+                            <span class="rule-icon">1</span>
+                            <div>
+                                <h4>Session Limit</h4>
+                                <p>Each student is allocated 30 sit-in sessions per semester.</p>
+                            </div>
+                        </div>
+                        <div class="rule-item">
+                            <span class="rule-icon">2</span>
+                            <div>
+                                <h4>Check-in / Check-out</h4>
+                                <p>Always check out when leaving the lab. Sessions are only completed upon proper check-out.</p>
+                            </div>
+                        </div>
+                        <div class="rule-item">
+                            <span class="rule-icon">3</span>
+                            <div>
+                                <h4>Lab Assignment</h4>
+                                <p>Wait for admin approval and lab assignment before using any laboratory facility.</p>
+                            </div>
+                        </div>
+                        <div class="rule-item">
+                            <span class="rule-icon">4</span>
+                            <div>
+                                <h4>Purpose of Use</h4>
+                                <p>Labs are for academic purposes only.</p>
+                            </div>
+                        </div>
+                        <div class="rule-item">
+                            <span class="rule-icon">5</span>
+                            <div>
+                                <h4>Equipment Care</h4>
+                                <p>Handle all laboratory equipment with care. Report any damages immediately.</p>
+                            </div>
+                        </div>
+                        <div class="rule-item">
+                            <span class="rule-icon">6</span>
+                            <div>
+                                <h4>Quiet Environment</h4>
+                                <p>Maintain a conducive learning environment. Keep noise to a minimum.</p>
+                            </div>
+                        </div>
+                        <div class="rule-item">
+                            <span class="rule-icon">7</span>
+                            <div>
+                                <h4>No Food or Drinks</h4>
+                                <p>Eating and drinking are not allowed inside the computer laboratories.</p>
+                            </div>
+                        </div>
+                        <div class="rule-item">
+                            <span class="rule-icon">8</span>
+                            <div>
+                                <h4>Compliance</h4>
+                                <p>Follow all instructions from laboratory administrators and staff.</p>
+                            </div>
                         </div>
                     </div>
-                    <div class="rule-item">
-                        <span class="rule-icon">2</span>
-                        <div>
-                            <h4>Check-in / Check-out</h4>
-                            <p>Always check out when leaving the lab. Sessions are only completed upon proper check-out.</p>
-                        </div>
+                </section>
+
+                <!-- Lab Availability -->
+                <section class="lab-avail-section" id="lab-avail-section">
+                    <h3 class="section-title">Lab Availability</h3>
+                    <div id="user-lab-availability" class="user-lab-list">
+                        <p class="no-history-msg">Loading lab data...</p>
                     </div>
-                    <div class="rule-item">
-                        <span class="rule-icon">3</span>
-                        <div>
-                            <h4>Lab Assignment</h4>
-                            <p>Wait for admin approval and lab assignment before using any laboratory facility.</p>
-                        </div>
-                    </div>
-                    <div class="rule-item">
-                        <span class="rule-icon">4</span>
-                        <div>
-                            <h4>Purpose of Use</h4>
-                            <p>Labs are for academic purposes only.</p>
-                        </div>
-                    </div>
-                    <div class="rule-item">
-                        <span class="rule-icon">5</span>
-                        <div>
-                            <h4>Equipment Care</h4>
-                            <p>Handle all laboratory equipment with care. Report any damages immediately.</p>
-                        </div>
-                    </div>
-                    <div class="rule-item">
-                        <span class="rule-icon">6</span>
-                        <div>
-                            <h4>Quiet Environment</h4>
-                            <p>Maintain a conducive learning environment. Keep noise to a minimum.</p>
-                        </div>
-                    </div>
-                    <div class="rule-item">
-                        <span class="rule-icon">7</span>
-                        <div>
-                            <h4>No Food or Drinks</h4>
-                            <p>Eating and drinking are not allowed inside the computer laboratories.</p>
-                        </div>
-                    </div>
-                    <div class="rule-item">
-                        <span class="rule-icon">8</span>
-                        <div>
-                            <h4>Compliance</h4>
-                            <p>Follow all instructions from laboratory administrators and staff.</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
+                </section>
+            </div>
 
             <!-- Right Column -->
             <div class="right-column">
+                <!-- Reservation Status -->
+                <section class="reservation-status-section" id="reservation-status-section">
+                    <div class="res-status-bar" id="res-status-bar">
+                        <div class="res-status-info">
+                            <strong>Reservations</strong>
+                            <span class="res-status-badge" id="res-status-badge">Enabled</span>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Announcements -->
                 <section class="announcements-section" id="announcements-section">
                     <h3 class="section-title">Announcements</h3>
                     <div class="announcements-placeholder"></div>
                 </section>
 
-                <!-- Sit-in History -->
-                <section class="history-section" id="history-section">
+                <!-- Sit-In Summary -->
+                <section class="sitin-summary-section" id="sitin-summary-section">
+                    <h3 class="section-title">Your Sit-In Summary</h3>
+                    <div class="summary-cards-grid">
+                        <div class="summary-card">
+                            <span class="summary-value" id="sum-total-hours">0h</span>
+                            <span class="summary-label">Total Hours</span>
+                        </div>
+                        <div class="summary-card">
+                            <span class="summary-value" id="sum-sessions">0</span>
+                            <span class="summary-label">Sessions</span>
+                        </div>
+                        <div class="summary-card">
+                            <span class="summary-value" id="sum-avg-duration">N/A</span>
+                            <span class="summary-label">Avg Duration</span>
+                        </div>
+                        <div class="summary-card">
+                            <span class="summary-value" id="sum-longest">N/A</span>
+                            <span class="summary-label">Longest Session</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Session Table -->
+                <section class="session-table-section" id="session-table-section">
                     <div class="section-header-row">
-                        <h3 class="section-title">Recent Sit-in History</h3>
+                        <h3 class="section-title">Session History</h3>
                         <button type="button" class="history-feedback-btn" id="open-feedback-btn">Leave Feedback</button>
                     </div>
-                    <div class="history-list" id="history-list">
-                        <p class="no-history-msg">No sit-in history yet.</p>
+                    <div class="session-table-wrap">
+                        <table class="user-session-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Time In</th>
+                                    <th>Time Out</th>
+                                    <th>Duration</th>
+                                    <th>PC No.</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="user-session-tbody">
+                                <tr><td colspan="6" class="empty-table-msg">No sessions yet.</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </section>
             </div>
@@ -261,6 +319,20 @@
                 <div class="field-group">
                     <label for="reserve-notes">Additional Notes <span class="optional-label">(optional)</span></label>
                     <textarea id="reserve-notes" rows="2" placeholder="Any additional details..."></textarea>
+                </div>
+                <div class="form-grid-2">
+                    <div class="field-group">
+                        <label for="reserve-date">Preferred Date</label>
+                        <input type="date" id="reserve-date" required>
+                    </div>
+                    <div class="field-group">
+                        <label for="reserve-start-time">Start Time</label>
+                        <input type="time" id="reserve-start-time" required>
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label for="reserve-end-time">End Time</label>
+                    <input type="time" id="reserve-end-time" required>
                 </div>
                 <p class="form-hint-modal">Your request will be sent to the admin for approval. You will be notified once it is reviewed.</p>
                 <div class="user-modal-actions">

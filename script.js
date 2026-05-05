@@ -13,7 +13,8 @@ const STORAGE_KEYS = {
     ANNOUNCEMENTS: 'ccs_announcements',
     SITIN_RECORDS: 'ccs_sitin_records',
     SITIN_CURRENT: 'ccs_sitin_current',
-    LAB_ROOMS: 'ccs_lab_rooms'
+    LAB_ROOMS: 'ccs_lab_rooms',
+    RESERVATION_ENABLED: 'ccs_reservation_enabled'
 };
 
 // ============================================
@@ -39,7 +40,7 @@ function initDefaultAdmin() {
 
 function getUsers() {
     const users = localStorage.getItem(STORAGE_KEYS.USERS);
-    return users ? JSON.parse(users) : [];
+    return safeParseJSON(users, []);
 }
 
 function saveUsers(users) {
@@ -48,7 +49,7 @@ function saveUsers(users) {
 
 function getCurrentUser() {
     const user = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    return user ? JSON.parse(user) : null;
+    return safeParseJSON(user, null);
 }
 
 function setCurrentUser(user) {
@@ -117,7 +118,7 @@ function isLoggedIn() {
 
 function getAdmins() {
     const admins = localStorage.getItem(STORAGE_KEYS.ADMINS);
-    return admins ? JSON.parse(admins) : [];
+    return safeParseJSON(admins, []);
 }
 
 function saveAdmins(admins) {
@@ -126,7 +127,7 @@ function saveAdmins(admins) {
 
 function getCurrentAdmin() {
     const admin = localStorage.getItem(STORAGE_KEYS.ADMIN_CURRENT);
-    return admin ? JSON.parse(admin) : null;
+    return safeParseJSON(admin, null);
 }
 
 function setCurrentAdmin(admin) {
@@ -172,7 +173,7 @@ function isAdminLoggedIn() {
 
 function getAnnouncements() {
     const announcements = localStorage.getItem(STORAGE_KEYS.ANNOUNCEMENTS);
-    return announcements ? JSON.parse(announcements) : [];
+    return safeParseJSON(announcements, []);
 }
 
 function saveAnnouncements(announcements) {
@@ -221,9 +222,7 @@ function getDefaultLabRooms() {
 
 function getLabRooms() {
     const labs = localStorage.getItem(STORAGE_KEYS.LAB_ROOMS);
-    if (labs) {
-        return JSON.parse(labs);
-    }
+    if (labs) return safeParseJSON(labs, getDefaultLabRooms());
     return getDefaultLabRooms();
 }
 
@@ -306,7 +305,7 @@ function deleteLab(labId) {
 
 function getSitInRecords() {
     const records = localStorage.getItem(STORAGE_KEYS.SITIN_RECORDS);
-    return records ? JSON.parse(records) : [];
+    return safeParseJSON(records, []);
 }
 
 function saveSitInRecords(records) {
@@ -315,7 +314,7 @@ function saveSitInRecords(records) {
 
 function getCurrentSitIns() {
     const sitins = localStorage.getItem(STORAGE_KEYS.SITIN_CURRENT);
-    return sitins ? JSON.parse(sitins) : [];
+    return safeParseJSON(sitins, []);
 }
 
 function saveCurrentSitIns(sitins) {
@@ -398,7 +397,7 @@ function rejectSitInRequest(requestId) {
 
 function getSitinRequests() {
     const requests = localStorage.getItem('ccs_sitin_requests');
-    return requests ? JSON.parse(requests) : [];
+    return safeParseJSON(requests, []);
 }
 
 function saveSitInRequests(requests) {
@@ -927,6 +926,12 @@ function updateLandingPageForLoggedInUser() {
     // Populate sit-in history
     loadStudentSitinHistory(user.idNumber);
 
+    // Load new dashboard sections
+    loadUserSitinSummary(user.idNumber);
+    loadUserSessionTable(user.idNumber);
+    loadUserLabAvailability();
+    updateStudentReservationStatus();
+
     // Handle profile photo
     if (fullUser?.profilePhoto) {
         if (profilePhoto) {
@@ -974,11 +979,15 @@ function updateLandingPageForLoggedInUser() {
 // ============================================
 
 function openReserveModal(user) {
+    if (!isReservationEnabled()) {
+        showMessage('Reservations are currently disabled by the administrator.', 'error');
+        return;
+    }
+
     const modal = document.getElementById('reserve-modal');
     const labSelect = document.getElementById('reserve-lab');
     if (!modal || !labSelect) return;
 
-    // Populate labs (exclude closed/maintenance)
     const labs = getLabRooms().filter(l => l.status !== 'maintenance' && l.status !== 'closed');
     labSelect.innerHTML = '<option value="">-- Choose an available lab --</option>';
     if (labs.length === 0) {
@@ -993,11 +1002,21 @@ function openReserveModal(user) {
         });
     }
 
-    modal.style.display = 'flex';
-    document.getElementById('reserve-purpose').value = '';
-    document.getElementById('reserve-notes').value = '';
+    // Set default date to today
+    const today = new Date().toISOString().split('T')[0];
+    const reserveDateInput = document.getElementById('reserve-date');
+    if (reserveDateInput) reserveDateInput.value = today;
 
-    // Close handlers
+    modal.style.display = 'flex';
+    const purposeInput = document.getElementById('reserve-purpose');
+    const notesInput = document.getElementById('reserve-notes');
+    const startInput = document.getElementById('reserve-start-time');
+    const endInput = document.getElementById('reserve-end-time');
+    if (purposeInput) purposeInput.value = '';
+    if (notesInput) notesInput.value = '';
+    if (startInput) startInput.value = '';
+    if (endInput) endInput.value = '';
+
     const closeBtn = document.getElementById('reserve-modal-close');
     const cancelBtn = document.getElementById('reserve-modal-cancel');
     const closeModal = () => { modal.style.display = 'none'; };
@@ -1005,7 +1024,6 @@ function openReserveModal(user) {
     cancelBtn.onclick = closeModal;
     modal.onclick = (e) => { if (e.target === modal) closeModal(); };
 
-    // Form submit
     const form = document.getElementById('reserve-form');
     form.onsubmit = function(e) {
         e.preventDefault();
@@ -1013,20 +1031,31 @@ function openReserveModal(user) {
         const selectedLab = getLabRooms().find(l => l.id === selectedLabId);
         const purpose = document.getElementById('reserve-purpose').value.trim();
         const notes = document.getElementById('reserve-notes').value.trim();
+        const resDate = document.getElementById('reserve-date')?.value || new Date().toISOString().split('T')[0];
+        const startTime = document.getElementById('reserve-start-time')?.value || null;
+        const endTime = document.getElementById('reserve-end-time')?.value || null;
 
         if (!selectedLabId) { showMessage('Please select a lab.', 'error'); return; }
         if (!purpose) { showMessage('Please enter a purpose.', 'error'); return; }
+        if (!resDate) { showMessage('Please select a date.', 'error'); return; }
+        if (!startTime) { showMessage('Please enter a start time.', 'error'); return; }
+        if (!endTime) { showMessage('Please enter an end time.', 'error'); return; }
+        if (startTime >= endTime) { showMessage('End time must be after start time.', 'error'); return; }
 
-        const users = getUsers();
-        const fullUser = users.find(u => u.idNumber === user.idNumber);
+        // Check for duplicate pending reservation
+        const existing = getReservations().find(r => r.studentId === user.idNumber && r.status === 'pending');
+        if (existing) {
+            showMessage('You already have a pending reservation. Please wait for admin review.', 'error');
+            return;
+        }
 
         const result = addReservation({
             studentId: user.idNumber,
             studentName: `${user.firstName} ${user.lastName}`,
             lab: selectedLab?.name || selectedLabId,
-            date: new Date().toISOString().split('T')[0],
-            startTime: null,
-            endTime: null,
+            date: resDate,
+            startTime: startTime,
+            endTime: endTime,
             purpose,
             notes
         });
@@ -1132,9 +1161,6 @@ function initNotificationBell(studentId) {
 // ============================================
 
 function loadStudentSitinHistory(studentIdNumber) {
-    const historyList = document.getElementById('history-list');
-    if (!historyList) return;
-
     // Wire the top-level feedback button regardless of history state
     const openFeedbackBtn = document.getElementById('open-feedback-btn');
     if (openFeedbackBtn && !openFeedbackBtn.dataset.hasListener) {
@@ -1143,6 +1169,9 @@ function loadStudentSitinHistory(studentIdNumber) {
             openSitinFeedbackModal('', '', studentIdNumber);
         });
     }
+
+    const historyList = document.getElementById('history-list');
+    if (!historyList) return;
 
     const records = getSitInRecords().map(r => ({ ...r, status: r.status || 'completed' }));
     const active = getCurrentSitIns().map(s => ({ ...s, status: 'active' }));
@@ -1187,6 +1216,135 @@ function loadStudentSitinHistory(studentIdNumber) {
             </div>`;
     }).join('');
 
+}
+
+// ============================================
+// Student Dashboard - Sit-In Summary
+// ============================================
+
+function loadUserSitinSummary(studentId) {
+    const records = getSitInRecords().filter(r => r.idNumber === studentId && r.status === 'completed');
+
+    const totalMs = records.reduce((sum, r) => {
+        if (r.startTime && r.endTime) return sum + (new Date(r.endTime) - new Date(r.startTime));
+        return sum;
+    }, 0);
+    const totalHours = (totalMs / 3600000).toFixed(1);
+    const avgMs = records.length > 0 ? totalMs / records.length : 0;
+    const avgMins = Math.round(avgMs / 60000);
+
+    let longestMs = 0;
+    records.forEach(r => {
+        if (r.startTime && r.endTime) {
+            const dur = new Date(r.endTime) - new Date(r.startTime);
+            if (!isNaN(dur) && dur > longestMs) longestMs = dur;
+        }
+    });
+    const longestMins = Math.round(longestMs / 60000);
+    const formatMins = m => m >= 60 ? `${Math.floor(m/60)}h ${m%60}m` : `${m}m`;
+
+    const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setEl('sum-total-hours', totalHours + 'h');
+    setEl('sum-sessions', records.length);
+    setEl('sum-avg-duration', avgMins > 0 ? formatMins(avgMins) : 'N/A');
+    setEl('sum-longest', longestMins > 0 ? formatMins(longestMins) : 'N/A');
+}
+
+// ============================================
+// Student Dashboard - Session Table
+// ============================================
+
+function loadUserSessionTable(studentId) {
+    const tbody = document.getElementById('user-session-tbody');
+    if (!tbody) return;
+
+    const records = getSitInRecords().filter(r => r.idNumber === studentId);
+    const currentSitIns = getCurrentSitIns()
+        .filter(s => s.idNumber === studentId && s.status === 'active')
+        .map(s => ({ ...s, status: 'active' }));
+
+    const allSessions = [...currentSitIns, ...records];
+    const deduped = Array.from(
+        new Map(allSessions.map(s => [s.id ?? `${s.idNumber}-${s.startTime}`, s])).values()
+    );
+    const sorted = deduped.sort((a, b) => new Date(b.startTime || 0) - new Date(a.startTime || 0));
+
+    if (sorted.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-table-msg">No sessions yet.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = sorted.map(s => {
+        const startDate = s.startTime ? new Date(s.startTime) : null;
+        const endDate = s.endTime ? new Date(s.endTime) : null;
+        const dateStr = startDate ? startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
+        const timeInStr = startDate ? startDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+        const timeOutStr = endDate ? endDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : (s.status === 'active' ? 'Active' : 'N/A');
+        const durStr = startDate && endDate ? calculateDuration(s.startTime, s.endTime) : (s.status === 'active' ? 'In progress' : 'N/A');
+        const pcNo = s.pcNumber || s.pc || '—';
+        return `<tr>
+            <td>${dateStr}</td>
+            <td>${timeInStr}</td>
+            <td>${timeOutStr}</td>
+            <td>${durStr}</td>
+            <td>${escapeHTML(String(pcNo))}</td>
+            <td><span class="status-badge status-${s.status || 'completed'}">${s.status || 'completed'}</span></td>
+        </tr>`;
+    }).join('');
+}
+
+// ============================================
+// Student Dashboard - Lab Availability
+// ============================================
+
+function loadUserLabAvailability() {
+    const container = document.getElementById('user-lab-availability');
+    if (!container) return;
+
+    const labs = updateLabOccupancy();
+    if (!labs || labs.length === 0) {
+        container.innerHTML = '<p class="no-history-msg">No lab data available.</p>';
+        return;
+    }
+
+    container.innerHTML = labs.map(lab => {
+        const pct = lab.capacity > 0 ? Math.min(100, Math.round((lab.currentOccupancy / lab.capacity) * 100)) : 0;
+        const isUnavailable = lab.status === 'maintenance' || lab.status === 'closed';
+        const isFull = !isUnavailable && pct >= 100;
+        const statusClass = isUnavailable ? 'ulab-maintenance' : isFull ? 'ulab-full' : 'ulab-available';
+        const statusText = isUnavailable ? lab.status : isFull ? 'Full' : 'Available';
+        return `<div class="user-lab-item ${statusClass}">
+            <div class="ulab-header">
+                <span class="ulab-name">${escapeHTML(lab.name)}</span>
+                <span class="ulab-status-badge">${statusText}</span>
+            </div>
+            <div class="ulab-bar-wrap">
+                <div class="ulab-bar-fill" style="width:${pct}%"></div>
+            </div>
+            <span class="ulab-count">${lab.currentOccupancy}/${lab.capacity} seats occupied</span>
+        </div>`;
+    }).join('');
+}
+
+// ============================================
+// Student Dashboard - Reservation Status
+// ============================================
+
+function updateStudentReservationStatus() {
+    const badge = document.getElementById('res-status-badge');
+    const makeReservationBtn = document.getElementById('make-reservation-btn');
+    const enabled = isReservationEnabled();
+
+    if (badge) {
+        badge.textContent = enabled ? 'Open' : 'Closed';
+        badge.className = 'res-status-badge ' + (enabled ? 'res-open' : 'res-closed');
+    }
+
+    if (makeReservationBtn) {
+        makeReservationBtn.disabled = !enabled;
+        makeReservationBtn.title = enabled ? '' : 'Reservations are currently closed by the administrator.';
+        makeReservationBtn.style.opacity = enabled ? '1' : '0.5';
+    }
 }
 
 function openSitinFeedbackModal(sitinId, lab, studentIdNumber) {
@@ -1394,6 +1552,46 @@ function getYearSuffix(year) {
 }
 
 // ============================================
+// Security & Safety Helpers
+// ============================================
+
+function escapeHTML(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function safeParseJSON(str, fallback) {
+    if (!str) return fallback;
+    try { return JSON.parse(str); } catch (e) { return fallback; }
+}
+
+function csvEscape(val) {
+    const s = String(val == null ? '' : val);
+    if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+        return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+}
+
+// ============================================
+// Reservation Enable/Disable
+// ============================================
+
+function isReservationEnabled() {
+    const val = localStorage.getItem(STORAGE_KEYS.RESERVATION_ENABLED);
+    return val === null || val === 'true';
+}
+
+function setReservationEnabled(enabled) {
+    localStorage.setItem(STORAGE_KEYS.RESERVATION_ENABLED, enabled ? 'true' : 'false');
+}
+
+// ============================================
 // Dark Mode / Theme Functions
 // ============================================
 
@@ -1503,6 +1701,30 @@ function initAdminDashboard() {
 
     // Load announcements
     loadAnnouncements();
+
+    // Load analytics and leaderboard
+    loadDashboardAnalytics();
+    loadDashboardLeaderboard();
+
+    // Reservation toggle
+    updateReservationToggleUI();
+    const rtbToggleBtn = document.getElementById('rtb-toggle-btn');
+    if (rtbToggleBtn && !rtbToggleBtn.dataset.hasListener) {
+        rtbToggleBtn.dataset.hasListener = 'true';
+        rtbToggleBtn.addEventListener('click', function() {
+            const currentlyEnabled = isReservationEnabled();
+            const newState = !currentlyEnabled;
+            setReservationEnabled(newState);
+            updateReservationToggleUI();
+            showMessage(`Reservations ${newState ? 'enabled' : 'disabled'} successfully.`, newState ? 'success' : 'info');
+        });
+    }
+
+    // Leaderboard search and sort
+    const lbSearch = document.getElementById('leaderboard-search');
+    const lbSort = document.getElementById('leaderboard-sort');
+    if (lbSearch) lbSearch.addEventListener('input', loadDashboardLeaderboard);
+    if (lbSort) lbSort.addEventListener('change', loadDashboardLeaderboard);
 
     // Init announcement form
     const announcementForm = document.getElementById('announcementForm');
@@ -1700,7 +1922,7 @@ function loadAnnouncements() {
                     <span class="announcement-author">${a.author}</span>
                     <span class="announcement-date">${new Date(a.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                 </div>
-                <p class="announcement-text">${a.text}</p>
+                <p class="announcement-text">${escapeHTML(a.text)}</p>
                 <button class="btn-delete-announcement" data-id="${a.id}">Delete</button>
             </div>
         `).join('');
@@ -1719,6 +1941,128 @@ function loadAnnouncements() {
     });
 }
 
+function updateReservationToggleUI() {
+    const enabled = isReservationEnabled();
+    const statusText = document.getElementById('rtb-status-text');
+    const toggleBtn = document.getElementById('rtb-toggle-btn');
+    if (statusText) {
+        statusText.textContent = enabled ? 'Enabled' : 'Disabled';
+        statusText.className = 'rtb-status ' + (enabled ? 'rtb-enabled' : 'rtb-disabled');
+    }
+    if (toggleBtn) {
+        toggleBtn.textContent = enabled ? 'Disable Reservations' : 'Enable Reservations';
+        toggleBtn.className = 'btn ' + (enabled ? 'admin-clear-btn' : 'admin-submit-btn');
+    }
+}
+
+// ============================================
+// Admin Dashboard - Analytics
+// ============================================
+
+function loadDashboardAnalytics() {
+    const users = getUsers();
+    const records = getSitInRecords();
+    const currentSitIns = getCurrentSitIns();
+    const reservations = getReservations();
+    const labs = getLabRooms();
+    const feedbackList = getFeedback();
+
+    const completedRecords = records.filter(r => r.status === 'completed');
+    const pendingReservations = reservations.filter(r => r.status === 'pending').length;
+    const avgRating = feedbackList.length > 0
+        ? (feedbackList.reduce((s, f) => s + (f.rating || 0), 0) / feedbackList.length).toFixed(1)
+        : '0.0';
+    const availableLabs = labs.filter(l => l.status === 'available').length;
+
+    const totalMs = completedRecords.reduce((sum, r) => {
+        if (r.startTime && r.endTime) return sum + (new Date(r.endTime) - new Date(r.startTime));
+        return sum;
+    }, 0);
+    const totalHours = (totalMs / 3600000).toFixed(1);
+
+    const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setEl('ana-total-students', users.length);
+    setEl('ana-active-sitins', currentSitIns.length);
+    setEl('ana-completed-sitins', completedRecords.length);
+    setEl('ana-pending-reservations', pendingReservations);
+    setEl('ana-total-hours', totalHours + 'h');
+    setEl('ana-available-labs', availableLabs + '/' + labs.length);
+    setEl('ana-total-feedback', feedbackList.length);
+    setEl('ana-avg-rating', avgRating);
+}
+
+// ============================================
+// Admin Dashboard - Leaderboard
+// ============================================
+
+function loadDashboardLeaderboard() {
+    const listEl = document.getElementById('leaderboard-list');
+    if (!listEl) return;
+
+    const records = getSitInRecords();
+    const users = getUsers();
+
+    const searchTerm = (document.getElementById('leaderboard-search')?.value || '').toLowerCase();
+    const sortBy = document.getElementById('leaderboard-sort')?.value || 'sessions';
+
+    const sessionCounts = {};
+    const sessionDurations = {};
+    records.forEach(r => {
+        if (!r.idNumber) return;
+        sessionCounts[r.idNumber] = (sessionCounts[r.idNumber] || 0) + 1;
+        if (r.startTime && r.endTime) {
+            const dur = new Date(r.endTime) - new Date(r.startTime);
+            if (!isNaN(dur) && dur > 0) {
+                sessionDurations[r.idNumber] = (sessionDurations[r.idNumber] || 0) + dur;
+            }
+        }
+    });
+
+    let leaderboard = Object.keys(sessionCounts).map(id => {
+        const user = users.find(u => u.idNumber === id);
+        return {
+            idNumber: id,
+            name: user ? `${user.firstName} ${user.lastName}` : id,
+            course: user?.course || 'N/A',
+            sessions: sessionCounts[id],
+            totalMinutes: Math.floor((sessionDurations[id] || 0) / 60000)
+        };
+    });
+
+    if (searchTerm) {
+        leaderboard = leaderboard.filter(e =>
+            e.name.toLowerCase().includes(searchTerm) ||
+            e.idNumber.toLowerCase().includes(searchTerm)
+        );
+    }
+
+    leaderboard.sort((a, b) => sortBy === 'hours' ? b.totalMinutes - a.totalMinutes : b.sessions - a.sessions);
+    leaderboard = leaderboard.slice(0, 10);
+
+    if (leaderboard.length === 0) {
+        listEl.innerHTML = '<p class="no-data-msg">No session data yet. Start approving sit-ins to see the leaderboard.</p>';
+        return;
+    }
+
+    listEl.innerHTML = leaderboard.map((entry, index) => {
+        const rankClass = index === 0 ? 'lb-rank-1' : index === 1 ? 'lb-rank-2' : index === 2 ? 'lb-rank-3' : '';
+        const hours = Math.floor(entry.totalMinutes / 60);
+        const mins = entry.totalMinutes % 60;
+        const durationStr = entry.totalMinutes > 0 ? (hours > 0 ? `${hours}h ${mins}m` : `${mins}m`) : '—';
+        return `<div class="lb-entry ${rankClass}">
+            <span class="lb-rank">#${index + 1}</span>
+            <div class="lb-info">
+                <span class="lb-name">${escapeHTML(entry.name)}</span>
+                <span class="lb-course">${escapeHTML(entry.course)} &bull; ID: ${escapeHTML(entry.idNumber)}</span>
+            </div>
+            <div class="lb-stats">
+                <span class="lb-sessions">${entry.sessions} session${entry.sessions !== 1 ? 's' : ''}</span>
+                <span class="lb-duration">${durationStr}</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
 // Load announcements for users on landing page
 function loadUserAnnouncements() {
     const announcementsPlaceholder = document.querySelector('.announcements-placeholder');
@@ -1734,7 +2078,7 @@ function loadUserAnnouncements() {
         announcementsPlaceholder.innerHTML = `
             <div class="user-announcement">
                 <p class="announcement-date">${new Date(latestAnnouncement.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                <p class="announcement-text">${latestAnnouncement.text}</p>
+                <p class="announcement-text">${escapeHTML(latestAnnouncement.text)}</p>
             </div>
         `;
     }
@@ -1973,7 +2317,9 @@ function loadStudentsTable(searchTerm = '') {
     // Pagination
     const entriesPerPage = parseInt(document.getElementById('entries-per-page')?.value) || 10;
     const totalPages = Math.ceil(users.length / entriesPerPage);
-    const currentPage = 1;
+    const currentPageEl = document.getElementById('students-current-page');
+    let currentPage = parseInt(currentPageEl?.dataset.page || '1');
+    if (currentPage > totalPages) currentPage = Math.max(1, totalPages);
     const start = (currentPage - 1) * entriesPerPage;
     const paginatedUsers = users.slice(start, start + entriesPerPage);
 
@@ -2010,6 +2356,28 @@ function loadStudentsTable(searchTerm = '') {
             }
         });
     });
+
+    // Pagination for students
+    const studPaginationEl = document.getElementById('students-pagination');
+    if (studPaginationEl) {
+        const total = users.length;
+        const showFrom = total === 0 ? 0 : start + 1;
+        const showTo = Math.min(start + entriesPerPage, total);
+        let html = `<div class="pagination-info">Showing ${showFrom}–${showTo} of ${total}</div><div class="pagination-btns" id="students-current-page" data-page="${currentPage}">`;
+        for (let i = 1; i <= totalPages; i++) {
+            html += `<button class="page-btn ${i === currentPage ? 'page-btn-active' : ''}" data-page="${i}">${i}</button>`;
+        }
+        html += '</div>';
+        studPaginationEl.innerHTML = html;
+        studPaginationEl.querySelectorAll('.page-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const cpEl = document.getElementById('students-current-page');
+                if (cpEl) cpEl.dataset.page = this.dataset.page;
+                const term = document.getElementById('student-search')?.value || '';
+                loadStudentsTable(term);
+            });
+        });
+    }
 }
 
 function openStudentModal(student = null) {
@@ -2131,8 +2499,10 @@ function initAdminSitIn() {
             const idNumber = document.getElementById('result-id-number')?.textContent;
             const labSelect = document.getElementById('manual-sitin-lab');
             const purposeInput = document.getElementById('manual-sitin-purpose');
+            const pcNoInput = document.getElementById('manual-sitin-pcno');
             const selectedLab = labSelect?.value;
             const purpose = purposeInput?.value.trim();
+            const pcNumber = pcNoInput?.value ? parseInt(pcNoInput.value, 10) : null;
 
             if (!idNumber) {
                 showMessage('Please search for a student first.', 'error');
@@ -2160,16 +2530,18 @@ function initAdminSitIn() {
                 name: `${user.firstName} ${user.lastName}`,
                 purpose: purpose,
                 lab: selectedLab,
+                pcNumber: pcNumber,
                 session: 1,
                 status: 'active',
                 startTime: new Date().toISOString()
             };
 
             addSitIn(sitInData);
-            
+
             // Clear form
             if (purposeInput) purposeInput.value = '';
             if (labSelect) labSelect.value = '';
+            if (pcNoInput) pcNoInput.value = '';
             
             // Refresh displays
             loadSitInTable();
@@ -2563,7 +2935,9 @@ function loadRecordsTable(searchTerm = '') {
     // Pagination
     const entriesPerPage = parseInt(document.getElementById('records-entries-per-page')?.value) || 10;
     const totalPages = Math.ceil(records.length / entriesPerPage);
-    const currentPage = 1;
+    const currentPageEl = document.getElementById('records-current-page');
+    let currentPage = parseInt(currentPageEl?.dataset.page || '1');
+    if (currentPage > totalPages) currentPage = Math.max(1, totalPages);
     const start = (currentPage - 1) * entriesPerPage;
     const paginatedRecords = records.slice(start, start + entriesPerPage);
 
@@ -2583,11 +2957,23 @@ function loadRecordsTable(searchTerm = '') {
     // Update pagination
     const paginationEl = document.getElementById('records-pagination');
     if (paginationEl) {
-        paginationEl.innerHTML = `
-            <p style="text-align: center; color: var(--text-muted); padding: 1rem;">
-                Showing ${Math.min(paginatedRecords.length, records.length)} of ${records.length} records
-            </p>
-        `;
+        const totalEntries = records.length;
+        const showFrom = totalEntries === 0 ? 0 : start + 1;
+        const showTo = Math.min(start + entriesPerPage, totalEntries);
+        let paginationHTML = `<div class="pagination-info">Showing ${showFrom}–${showTo} of ${totalEntries} records</div><div class="pagination-btns" id="records-current-page" data-page="${currentPage}">`;
+        for (let i = 1; i <= totalPages; i++) {
+            paginationHTML += `<button class="page-btn ${i === currentPage ? 'page-btn-active' : ''}" data-page="${i}">${i}</button>`;
+        }
+        paginationHTML += '</div>';
+        paginationEl.innerHTML = paginationHTML;
+        paginationEl.querySelectorAll('.page-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const cpEl = document.getElementById('records-current-page');
+                if (cpEl) cpEl.dataset.page = this.dataset.page;
+                const searchTerm = document.getElementById('records-search')?.value || '';
+                loadRecordsTable(searchTerm);
+            });
+        });
     }
 }
 
@@ -2602,14 +2988,14 @@ function exportRecordsToCSV() {
     const csvContent = [
         headers.join(','),
         ...records.map(r => [
-            r.sitIdNumber || 'N/A',
-            r.idNumber,
-            `"${r.name}"`,
-            r.lab,
-            `"${r.purpose || 'N/A'}"`,
-            new Date(r.startTime).toLocaleString(),
-            r.endTime ? new Date(r.endTime).toLocaleString() : 'Active',
-            r.status
+            csvEscape(r.sitIdNumber || 'N/A'),
+            csvEscape(r.idNumber),
+            csvEscape(r.name),
+            csvEscape(r.lab),
+            csvEscape(r.purpose || 'N/A'),
+            csvEscape(new Date(r.startTime).toLocaleString()),
+            csvEscape(r.endTime ? new Date(r.endTime).toLocaleString() : 'Active'),
+            csvEscape(r.status)
         ].join(','))
     ].join('\n');
 
@@ -3488,7 +3874,7 @@ function getDefaultReservations() {
 
 function getReservations() {
     const reservations = localStorage.getItem('ccs_reservations');
-    return reservations ? JSON.parse(reservations) : getDefaultReservations();
+    return safeParseJSON(reservations, []);
 }
 
 function saveReservations(reservations) {
@@ -3584,6 +3970,7 @@ function approveReservation(id, adminName, options = {}) {
         name: reservation.studentName || (user ? `${user.firstName} ${user.lastName}` : reservation.studentId),
         purpose: reservation.purpose || 'Reservation',
         lab: assignedLab,
+        pcNumber: options.pcNumber || null,
         session: 1,
         status: 'active',
         startTime: new Date().toISOString(),
@@ -3633,7 +4020,7 @@ function getDefaultFeedback() {
 
 function getFeedback() {
     const feedback = localStorage.getItem('ccs_feedback');
-    return feedback ? JSON.parse(feedback) : getDefaultFeedback();
+    return safeParseJSON(feedback, []);
 }
 
 function saveFeedback(feedback) {
@@ -3832,7 +4219,9 @@ function initAdminReservation() {
         approveBtn.addEventListener('click', function() {
             const reservationId = this.dataset.reservationId;
             const admin = getCurrentAdmin();
-            const result = approveReservation(parseInt(reservationId), admin?.name || 'Admin');
+            const pcNoInput = document.getElementById('reservation-approve-pcno');
+            const pcNumber = pcNoInput?.value ? parseInt(pcNoInput.value, 10) : null;
+            const result = approveReservation(parseInt(reservationId), admin?.name || 'Admin', { pcNumber });
             if (result.success) {
                 detailsModal.style.display = 'none';
                 loadReservationsTable();
@@ -4085,15 +4474,18 @@ function openReservationDetails(id) {
     `;
 
     // Show/hide action buttons based on status
+    const pcNoApproveInput = document.getElementById('reservation-approve-pcno');
     if (approveBtn && rejectBtn) {
         if (reservation.status === 'pending') {
             approveBtn.style.display = 'inline-block';
             rejectBtn.style.display = 'inline-block';
+            if (pcNoApproveInput) { pcNoApproveInput.style.display = 'inline-block'; pcNoApproveInput.value = ''; }
             approveBtn.dataset.reservationId = id;
             rejectBtn.dataset.reservationId = id;
         } else {
             approveBtn.style.display = 'none';
             rejectBtn.style.display = 'none';
+            if (pcNoApproveInput) pcNoApproveInput.style.display = 'none';
         }
     }
 
@@ -4584,7 +4976,8 @@ document.addEventListener('DOMContentLoaded', function() {
     } else if (currentPage === 'adminrecords.html') {
         initAdminRecords();
     } else if (currentPage === 'adminreports.html') {
-        initAdminReports();
+        // adminreports.html redirects to records page
+        window.location.replace('adminrecords.html');
     } else if (currentPage === 'adminlabs.html') {
         initAdminLabs();
     } else if (currentPage === 'adminfeedback.html') {

@@ -32,6 +32,47 @@
     </header>
 
     <main class="admin-main">
+        <!-- Quick Action Cards -->
+        <div class="dash-quick-actions">
+            <a href="adminrecords.html" class="dash-qcard">
+                <span class="dash-qicon">GR</span>
+                <div class="dash-qinfo">
+                    <strong>Generate Reports</strong>
+                    <p>Export sit-in records and analytics to CSV</p>
+                </div>
+            </a>
+            <a href="adminreservation.html" class="dash-qcard">
+                <span class="dash-qicon">VR</span>
+                <div class="dash-qinfo">
+                    <strong>View Reservations</strong>
+                    <p>Manage and approve lab reservations</p>
+                </div>
+            </a>
+            <a href="#leaderboard-section" class="dash-qcard">
+                <span class="dash-qicon">LB</span>
+                <div class="dash-qinfo">
+                    <strong>Leaderboard</strong>
+                    <p>Top students by sit-in sessions</p>
+                </div>
+            </a>
+            <a href="#analytics-section" class="dash-qcard">
+                <span class="dash-qicon">AN</span>
+                <div class="dash-qinfo">
+                    <strong>Analytics</strong>
+                    <p>Usage statistics and insights</p>
+                </div>
+            </a>
+        </div>
+
+        <!-- Reservation Control Toggle -->
+        <div class="reservation-toggle-bar" id="reservation-toggle-bar">
+            <div class="rtb-info">
+                <strong>Student Reservations</strong>
+                <span class="rtb-status" id="rtb-status-text">Enabled</span>
+            </div>
+            <button class="btn rtb-toggle-btn" id="rtb-toggle-btn">Disable Reservations</button>
+        </div>
+
         <div class="admin-dashboard-grid">
             <!-- Statistics Panel -->
             <section class="admin-panel statistics-panel">
@@ -61,9 +102,7 @@
                 <div class="chart-container">
                     <canvas id="courseChart"></canvas>
                 </div>
-                <div class="course-legend" id="course-legend">
-                    <!-- Course legend items will be added dynamically -->
-                </div>
+                <div class="course-legend" id="course-legend"></div>
             </section>
 
             <!-- Announcement Panel -->
@@ -78,13 +117,91 @@
                     </div>
                     <button type="submit" class="btn admin-submit-btn">Submit</button>
                 </form>
-                
                 <div class="announcements-list" id="announcements-list">
                     <h4>Posted Announcement</h4>
-                    <!-- Announcements will be loaded here -->
                 </div>
             </section>
         </div>
+
+        <!-- Analytics Section -->
+        <section class="admin-panel" id="analytics-section" style="margin-bottom: 1rem;">
+            <div class="panel-header">
+                <h3>Analytics</h3>
+            </div>
+            <div class="analytics-cards-grid">
+                <div class="analytics-card">
+                    <span class="analytics-icon">ST</span>
+                    <div class="analytics-info">
+                        <span class="analytics-value" id="ana-total-students">0</span>
+                        <span class="analytics-label">Total Students</span>
+                    </div>
+                </div>
+                <div class="analytics-card">
+                    <span class="analytics-icon">AS</span>
+                    <div class="analytics-info">
+                        <span class="analytics-value" id="ana-active-sitins">0</span>
+                        <span class="analytics-label">Active Sit-ins</span>
+                    </div>
+                </div>
+                <div class="analytics-card">
+                    <span class="analytics-icon">CS</span>
+                    <div class="analytics-info">
+                        <span class="analytics-value" id="ana-completed-sitins">0</span>
+                        <span class="analytics-label">Completed Sessions</span>
+                    </div>
+                </div>
+                <div class="analytics-card">
+                    <span class="analytics-icon">PR</span>
+                    <div class="analytics-info">
+                        <span class="analytics-value" id="ana-pending-reservations">0</span>
+                        <span class="analytics-label">Pending Reservations</span>
+                    </div>
+                </div>
+                <div class="analytics-card">
+                    <span class="analytics-icon">TH</span>
+                    <div class="analytics-info">
+                        <span class="analytics-value" id="ana-total-hours">0h</span>
+                        <span class="analytics-label">Total Lab Hours</span>
+                    </div>
+                </div>
+                <div class="analytics-card">
+                    <span class="analytics-icon">AL</span>
+                    <div class="analytics-info">
+                        <span class="analytics-value" id="ana-available-labs">0</span>
+                        <span class="analytics-label">Available Labs</span>
+                    </div>
+                </div>
+                <div class="analytics-card">
+                    <span class="analytics-icon">FB</span>
+                    <div class="analytics-info">
+                        <span class="analytics-value" id="ana-total-feedback">0</span>
+                        <span class="analytics-label">Total Feedback</span>
+                    </div>
+                </div>
+                <div class="analytics-card">
+                    <span class="analytics-icon">AR</span>
+                    <div class="analytics-info">
+                        <span class="analytics-value" id="ana-avg-rating">0.0</span>
+                        <span class="analytics-label">Avg Rating</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Leaderboard Section -->
+        <section class="admin-panel" id="leaderboard-section" style="margin-bottom: 1rem;">
+            <div class="panel-header leaderboard-header">
+                <h3>Leaderboard</h3>
+                <div class="lb-controls">
+                    <input type="text" id="leaderboard-search" placeholder="Search by name or ID..." class="lb-search-input">
+                    <select id="leaderboard-sort" class="lb-sort-select">
+                        <option value="sessions">Sort by Sessions</option>
+                        <option value="hours">Sort by Hours</option>
+                    </select>
+                </div>
+            </div>
+            <div id="leaderboard-list" class="leaderboard-list"></div>
+        </section>
     </main>
 
     <!-- Search Modal -->

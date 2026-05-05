@@ -5910,3 +5910,583 @@ nav {
     color: var(--white);
 }
 
+/* ============================================
+   Admin Dashboard - Quick Action Cards
+   ============================================ */
+.dash-quick-actions {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.dash-qcard {
+    background: var(--card-bg);
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    text-decoration: none;
+    color: var(--text-dark);
+    transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
+    box-shadow: 0 1px 4px var(--shadow-color);
+}
+
+.dash-qcard:hover {
+    box-shadow: 0 4px 16px var(--shadow-strong);
+    border-color: var(--primary-blue);
+    transform: translateY(-2px);
+    color: var(--text-dark);
+}
+
+.dash-qicon {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    background: var(--gradient-main);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    min-width: 2rem;
+    text-align: center;
+}
+
+.dash-qinfo strong {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 0.15rem;
+}
+
+.dash-qinfo p {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.3;
+}
+
+/* ============================================
+   Reservation Toggle Bar
+   ============================================ */
+.reservation-toggle-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--card-bg);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 0.75rem 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 4px var(--shadow-color);
+}
+
+.rtb-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.rtb-info strong {
+    font-size: 0.9rem;
+    color: var(--text-dark);
+}
+
+.rtb-status {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+}
+
+.rtb-enabled {
+    background: #d4edda;
+    color: #155724;
+}
+
+.rtb-disabled {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* ============================================
+   Admin Dashboard - Analytics
+   ============================================ */
+.analytics-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.75rem;
+}
+
+.analytics-card {
+    background: var(--off-white);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    transition: box-shadow 0.2s;
+}
+
+.analytics-card:hover {
+    box-shadow: 0 2px 8px var(--shadow-strong);
+}
+
+.analytics-icon {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    background: var(--gradient-main);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    min-width: 2rem;
+    text-align: center;
+}
+
+.analytics-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.analytics-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--primary-blue);
+    line-height: 1.2;
+}
+
+[data-theme="dark"] .analytics-value {
+    background: var(--gradient-main);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.analytics-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* ============================================
+   Admin Dashboard - Leaderboard
+   ============================================ */
+.leaderboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.lb-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.lb-search-input, .lb-sort-select {
+    padding: 0.35rem 0.6rem;
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    font-size: 0.82rem;
+    background: var(--card-bg);
+    color: var(--text-dark);
+}
+
+.leaderboard-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.lb-entry {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.75rem 1rem;
+    background: var(--off-white);
+    border-radius: 8px;
+    border: 1px solid var(--border-light);
+    transition: box-shadow 0.2s;
+}
+
+.lb-entry:hover {
+    box-shadow: 0 2px 8px var(--shadow-strong);
+}
+
+.lb-rank-1 { border-left: 4px solid #FFD700; }
+.lb-rank-2 { border-left: 4px solid #C0C0C0; }
+.lb-rank-3 { border-left: 4px solid #CD7F32; }
+
+.lb-rank {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    min-width: 2rem;
+    text-align: center;
+}
+
+.lb-rank-1 .lb-rank { color: #B8860B; }
+.lb-rank-2 .lb-rank { color: #808080; }
+.lb-rank-3 .lb-rank { color: #8B4513; }
+
+.lb-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.lb-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-dark);
+}
+
+.lb-course {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.lb-stats {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.15rem;
+}
+
+.lb-sessions {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--primary-blue);
+}
+
+.lb-duration {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.no-data-msg {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 1.5rem;
+    font-size: 0.9rem;
+}
+
+/* ============================================
+   Student Dashboard - Reservation Status
+   ============================================ */
+.reservation-status-section {
+    background: var(--card-bg);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    box-shadow: 0 1px 3px var(--shadow-color);
+}
+
+.res-status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.res-status-info {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.res-status-info strong {
+    font-size: 0.85rem;
+    color: var(--text-dark);
+}
+
+.res-status-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.65rem;
+    border-radius: 20px;
+}
+
+.res-open {
+    background: #d4edda;
+    color: #155724;
+}
+
+.res-closed {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* ============================================
+   Student Dashboard - Sit-In Summary
+   ============================================ */
+.sitin-summary-section {
+    background: var(--card-bg);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    box-shadow: 0 1px 3px var(--shadow-color);
+}
+
+.summary-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.summary-card {
+    text-align: center;
+    padding: 0.6rem;
+    background: var(--off-white);
+    border-radius: 6px;
+    border: 1px solid var(--border-light);
+}
+
+.summary-value {
+    display: block;
+    font-size: 1.15rem;
+    font-weight: 700;
+    background: var(--gradient-main);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.3;
+}
+
+.summary-label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 0.15rem;
+}
+
+/* ============================================
+   Student Dashboard - Session Table
+   ============================================ */
+.session-table-section {
+    background: var(--card-bg);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    box-shadow: 0 1px 3px var(--shadow-color);
+}
+
+.session-table-wrap {
+    overflow-x: auto;
+    margin-top: 0.5rem;
+}
+
+.user-session-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+
+.user-session-table th {
+    text-align: left;
+    padding: 0.5rem 0.6rem;
+    background: var(--off-white);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 2px solid var(--border-light);
+}
+
+.user-session-table td {
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--border-light);
+    color: var(--text-dark);
+    vertical-align: middle;
+}
+
+.user-session-table tr:last-child td {
+    border-bottom: none;
+}
+
+.empty-table-msg {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 1.5rem;
+    font-style: italic;
+}
+
+/* ============================================
+   Student Dashboard - Lab Availability
+   ============================================ */
+.lab-avail-section {
+    background: var(--card-bg);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    box-shadow: 0 1px 3px var(--shadow-color);
+    margin-top: 0.75rem;
+}
+
+.user-lab-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.user-lab-item {
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-light);
+}
+
+.ulab-available { background: #f0fff4; border-left: 3px solid #28a745; }
+.ulab-full { background: #fff3f3; border-left: 3px solid #dc3545; }
+.ulab-maintenance { background: #fff8e1; border-left: 3px solid #ffc107; }
+
+[data-theme="dark"] .ulab-available { background: rgba(40,167,69,0.1); }
+[data-theme="dark"] .ulab-full { background: rgba(220,53,69,0.1); }
+[data-theme="dark"] .ulab-maintenance { background: rgba(255,193,7,0.1); }
+
+.ulab-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.3rem;
+}
+
+.ulab-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.ulab-status-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    background: var(--off-white);
+    color: var(--text-muted);
+}
+
+.ulab-available .ulab-status-badge { background: #d4edda; color: #155724; }
+.ulab-full .ulab-status-badge { background: #f8d7da; color: #721c24; }
+.ulab-maintenance .ulab-status-badge { background: #fff3cd; color: #856404; }
+
+.ulab-bar-wrap {
+    height: 4px;
+    background: var(--border-light);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 0.2rem;
+}
+
+.ulab-bar-fill {
+    height: 100%;
+    background: var(--gradient-main);
+    border-radius: 2px;
+    transition: width 0.3s;
+}
+
+.ulab-full .ulab-bar-fill { background: #dc3545; }
+.ulab-maintenance .ulab-bar-fill { background: #ffc107; }
+
+.ulab-count {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+/* ============================================
+   Left Column Stack (Student Dashboard)
+   ============================================ */
+.left-column-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* ============================================
+   Pagination Styles
+   ============================================ */
+.pagination-info {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    margin-bottom: 0.5rem;
+}
+
+.pagination-btns {
+    display: flex;
+    gap: 0.3rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.page-btn {
+    padding: 0.3rem 0.65rem;
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    background: var(--card-bg);
+    color: var(--text-dark);
+    cursor: pointer;
+    font-size: 0.82rem;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.page-btn:hover { background: var(--off-white); border-color: var(--primary-blue); }
+.page-btn-active {
+    background: var(--primary-blue);
+    color: white;
+    border-color: var(--primary-blue);
+}
+
+/* ============================================
+   Responsive overrides for new sections
+   ============================================ */
+@media (max-width: 900px) {
+    .dash-quick-actions {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .analytics-cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .summary-cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .dash-quick-actions {
+        grid-template-columns: 1fr;
+    }
+    .analytics-cards-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    .leaderboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .lb-controls {
+        flex-direction: column;
+        width: 100%;
+    }
+    .lb-search-input, .lb-sort-select {
+        width: 100%;
+    }
+}
+
+/* ============================================
+   Form Grid (for reserve modal date/time)
+   ============================================ */
+.form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
