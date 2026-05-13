@@ -16,46 +16,46 @@
 
 /* CSS Variables for Light Mode (Default) - Simplified */
 :root {
-    --primary-blue: #1877F2;
-    --deep-blue: #166FE5;
-    --purple: #833AB4;
-    --purple-dark: #6B2C91;
-    --pink: #E1306C;
-    --orange: #FD1D1D;
+    --primary-blue: #9929EA;
+    --deep-blue: #7B1FC4;
+    --purple: #9929EA;
+    --purple-dark: #7B1FC4;
+    --pink: #9929EA;
+    --orange: #9929EA;
     --gold: #F7B731;
     --gold-light: #FFD700;
     --white: #ffffff;
-    --off-white: #f0f2f5;
-    --text-dark: #1c1e21;
-    --text-muted: #65676b;
-    --border-light: #dddfe2;
-    --bg-gradient: linear-gradient(180deg, #f0f2f5 0%, #f0f2f5 100%);
+    --off-white: #f2f3f5;
+    --text-dark: #2e3035;
+    --text-muted: #6d6f78;
+    --border-light: #e3e5e8;
+    --bg-gradient: linear-gradient(180deg, #f2f3f5 0%, #f2f3f5 100%);
     --card-bg: #ffffff;
-    --shadow-color: rgba(0, 0, 0, 0.1);
-    --shadow-strong: rgba(0, 0, 0, 0.15);
-    --gradient-main: linear-gradient(135deg, #1877F2 0%, #166FE5 100%);
+    --shadow-color: rgba(0, 0, 0, 0.06);
+    --shadow-strong: rgba(0, 0, 0, 0.11);
+    --gradient-main: linear-gradient(135deg, #9929EA 0%, #7B1FC4 100%);
 }
 
 /* Dark Mode Variables - Simplified */
 [data-theme="dark"] {
-    --primary-blue: #4A9EFF;
-    --deep-blue: #3A8EEF;
-    --purple: #9B6FB6;
-    --purple-dark: #7B5F91;
-    --pink: #D65A8C;
-    --orange: #E54A4A;
+    --primary-blue: #c67cff;
+    --deep-blue: #9929EA;
+    --purple: #c67cff;
+    --purple-dark: #9929EA;
+    --pink: #c67cff;
+    --orange: #c67cff;
     --gold: #F7B731;
     --gold-light: #FFD700;
     --white: #ffffff;
-    --off-white: #18191A;
+    --off-white: #1e1f22;
     --text-dark: #ffffff;
-    --text-muted: #B0B3B8;
-    --border-light: #3E4042;
-    --bg-gradient: linear-gradient(180deg, #18191A 0%, #18191A 100%);
-    --card-bg: #242526;
-    --shadow-color: rgba(0, 0, 0, 0.3);
-    --shadow-strong: rgba(0, 0, 0, 0.4);
-    --gradient-main: linear-gradient(135deg, #4A9EFF 0%, #3A8EEF 100%);
+    --text-muted: #949ba4;
+    --border-light: #404249;
+    --bg-gradient: linear-gradient(180deg, #1e1f22 0%, #1e1f22 100%);
+    --card-bg: #2b2d31;
+    --shadow-color: rgba(0, 0, 0, 0.0);
+    --shadow-strong: rgba(0, 0, 0, 0.0);
+    --gradient-main: linear-gradient(135deg, #c67cff 0%, #9929EA 100%);
 }
 
 /* Global dark mode text color override */
@@ -88,7 +88,8 @@ html, body {
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    letter-spacing: -0.011em;
     background: var(--off-white);
     color: var(--text-dark);
     min-height: 100vh;
@@ -98,7 +99,7 @@ body {
 }
 
 header {
-    background: var(--gradient-main);
+    background: var(--primary-blue);
     color: var(--white);
     padding: 0.6rem 1rem;
     border: none;
@@ -106,7 +107,12 @@ header {
     justify-content: space-between;
     align-items: center;
     position: relative;
-    box-shadow: 0 2px 8px var(--shadow-color);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] header {
+    background: #1a0e2e;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
 }
 
 .header-left {
@@ -263,32 +269,47 @@ nav a:hover {
 .landing-main {
     flex: 1;
     width: 100%;
-    margin: 0;
-    padding: 0.5rem 1.5rem 0.5rem;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 2.5rem;
     display: grid;
-    gap: 0.5rem;
+    gap: 1.25rem;
 }
 
 /* Content Grid - Rules left, announcements+history right */
 .content-grid {
     display: grid;
-    grid-template-columns: 1.1fr 0.9fr;
-    gap: 0.75rem;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
     align-items: start;
 }
 
 .right-column {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 1.25rem;
 }
 
 .hero-panel {
-    border: 1px solid var(--border-light);
-    border-radius: 10px;
+    border: none;
+    border-radius: 8px;
     background: var(--card-bg);
-    padding: 1.5rem 1.75rem;
-    box-shadow: 0 1px 4px var(--shadow-color);
+    padding: 2rem 2.25rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 14px rgba(0,0,0,0.07);
+}
+
+[data-theme="dark"] .hero-panel {
+    box-shadow: none;
+}
+
+[data-theme="dark"] .announcements-section,
+[data-theme="dark"] .rules-section,
+[data-theme="dark"] .sitin-summary-section,
+[data-theme="dark"] .session-table-section,
+[data-theme="dark"] .reservation-status-section,
+[data-theme="dark"] .lab-avail-section {
+    border: none;
+    box-shadow: none;
 }
 
 [data-theme="dark"] .hero-panel {
@@ -443,9 +464,14 @@ nav a:hover {
    ============================================ */
 .features-section {
     border-radius: 8px;
-    padding: 1.2rem 1.5rem;
+    padding: 1.75rem 2rem;
     background: var(--card-bg);
-    border: 1px solid var(--border-light);
+    border: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.05);
+}
+
+[data-theme="dark"] .features-section {
+    box-shadow: none;
 }
 
 .section-title {
@@ -470,17 +496,23 @@ nav a:hover {
 .features-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 0.5rem;
+    gap: 1rem;
 }
 
 .feature-card {
     background: var(--card-bg);
-    border: 1px solid var(--border-light);
+    border: none;
     border-radius: 8px;
-    padding: 1rem;
+    padding: 1.4rem 1.25rem 1.5rem;
     transition: box-shadow 0.2s, transform 0.15s;
     position: relative;
     overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.05);
+}
+
+[data-theme="dark"] .feature-card {
+    box-shadow: none;
+    background: #313338;
 }
 
 .feature-card:hover {
@@ -817,10 +849,10 @@ nav a:hover {
     color: var(--primary-blue);
     padding: 0.55rem 1.1rem;
     border: 1.5px solid var(--primary-blue);
-    border-radius: 6px;
+    border-radius: 4px;
     cursor: pointer;
     font-size: 0.875rem;
-    font-weight: 600;
+    font-weight: 500;
     transition: background 0.15s, color 0.15s;
     text-decoration: none;
     display: inline-block;
@@ -1216,7 +1248,7 @@ nav a:hover {
 }
 
 .footer {
-    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--purple) 100%);
+    background: var(--deep-blue);
     color: var(--white);
     text-align: center;
     padding: 0.6rem 1rem;
@@ -2230,9 +2262,9 @@ nav {
 }
 
 .admin-main {
-    max-width: 1600px;
+    max-width: 1440px;
     margin: 0 auto;
-    padding: 1.2rem;
+    padding: 1.75rem 2rem 2.5rem;
     flex: 1;
     width: 100%;
 }
@@ -2240,9 +2272,9 @@ nav {
 /* Admin Dashboard Grid - Compact */
 .admin-dashboard-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.95fr);
-    gap: 1rem;
-    margin-bottom: 1rem;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
     align-items: start;
 }
 
@@ -3979,11 +4011,11 @@ nav {
    Announcements Placeholder
    ============================================ */
 .announcements-section {
-    border: 1px solid var(--border-light);
-    border-radius: 10px;
-    padding: 1rem 1.2rem;
+    border: none;
+    border-radius: 8px;
+    padding: 1.4rem 1.6rem;
     background: var(--card-bg);
-    box-shadow: 0 1px 3px var(--shadow-color);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .announcements-placeholder {
@@ -4026,25 +4058,24 @@ nav {
    Rules and Regulations Section
    ============================================ */
 .rules-section {
-    border: 1px solid var(--border-light);
-    border-radius: 10px;
-    padding: 1rem 1.2rem;
+    border: none;
+    border-radius: 8px;
+    padding: 1.4rem 1.6rem;
     background: var(--card-bg);
-    box-shadow: 0 1px 3px var(--shadow-color);
-    box-shadow: 0 2px 8px var(--shadow-color);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .rules-content {
     display: grid;
-    gap: 0.35rem;
-    margin-top: 0.5rem;
+    gap: 0.6rem;
+    margin-top: 0.75rem;
 }
 
 .rule-item {
     display: flex;
     align-items: flex-start;
-    gap: 0.65rem;
-    padding: 0.6rem 0.75rem;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
     background: var(--off-white);
     border-radius: 8px;
     border-left: 3px solid var(--primary-blue);
@@ -5916,8 +5947,8 @@ nav {
 .dash-quick-actions {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 0.75rem;
-    margin-bottom: 1rem;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
 }
 
 .dash-qcard {
@@ -6016,8 +6047,8 @@ nav {
    ============================================ */
 .analytics-cards-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 0.75rem;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
 }
 
 .analytics-card {
@@ -6182,10 +6213,10 @@ nav {
    ============================================ */
 .reservation-status-section {
     background: var(--card-bg);
-    border: 1px solid var(--border-light);
+    border: none;
     border-radius: 8px;
-    padding: 0.6rem 1rem;
-    box-shadow: 0 1px 3px var(--shadow-color);
+    padding: 1rem 1.6rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .res-status-bar {
@@ -6227,25 +6258,25 @@ nav {
    ============================================ */
 .sitin-summary-section {
     background: var(--card-bg);
-    border: 1px solid var(--border-light);
+    border: none;
     border-radius: 8px;
-    padding: 0.85rem 1rem;
-    box-shadow: 0 1px 3px var(--shadow-color);
+    padding: 1.4rem 1.6rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .summary-cards-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 0.5rem;
-    margin-top: 0.5rem;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
 }
 
 .summary-card {
     text-align: center;
-    padding: 0.6rem;
+    padding: 1rem 0.75rem;
     background: var(--off-white);
-    border-radius: 6px;
-    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    border: none;
 }
 
 .summary-value {
@@ -6271,15 +6302,15 @@ nav {
    ============================================ */
 .session-table-section {
     background: var(--card-bg);
-    border: 1px solid var(--border-light);
+    border: none;
     border-radius: 8px;
-    padding: 0.85rem 1rem;
-    box-shadow: 0 1px 3px var(--shadow-color);
+    padding: 1.4rem 1.6rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .session-table-wrap {
     overflow-x: auto;
-    margin-top: 0.5rem;
+    margin-top: 0.85rem;
 }
 
 .user-session-table {
@@ -6323,11 +6354,11 @@ nav {
    ============================================ */
 .lab-avail-section {
     background: var(--card-bg);
-    border: 1px solid var(--border-light);
+    border: none;
     border-radius: 8px;
-    padding: 0.85rem 1rem;
-    box-shadow: 0 1px 3px var(--shadow-color);
-    margin-top: 0.75rem;
+    padding: 1.4rem 1.6rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.05);
+    margin-top: 0;
 }
 
 .user-lab-list {
@@ -6408,7 +6439,7 @@ nav {
 .left-column-stack {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 1.25rem;
 }
 
 /* ============================================
