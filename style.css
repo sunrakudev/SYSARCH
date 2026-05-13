@@ -1897,6 +1897,7 @@ nav {
     background: var(--gradient-main);
     color: var(--white);
     -webkit-background-clip: unset;
+    background-clip: unset;
     -webkit-text-fill-color: var(--white);
 }
 
