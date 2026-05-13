@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,7 +10,11 @@
             if (!admin) { window.location.href = 'adminlogin.html'; }
         })();
     </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="admin.css">
 </head>
 <body class="admin-body">
     <header class="admin-header">
@@ -124,7 +128,7 @@
         </div>
 
         <!-- Analytics Section -->
-        <section class="admin-panel" id="analytics-section" style="margin-bottom: 1rem;">
+        <section class="admin-panel" id="analytics-section">
             <div class="panel-header">
                 <h3>Analytics</h3>
             </div>
@@ -189,7 +193,7 @@
         </section>
 
         <!-- Leaderboard Section -->
-        <section class="admin-panel" id="leaderboard-section" style="margin-bottom: 1rem;">
+        <section class="admin-panel" id="leaderboard-section">
             <div class="panel-header leaderboard-header">
                 <h3>Leaderboard</h3>
                 <div class="lb-controls">
@@ -201,6 +205,31 @@
                 </div>
             </div>
             <div id="leaderboard-list" class="leaderboard-list"></div>
+        </section>
+
+        <!-- Sessions Table -->
+        <section class="admin-panel" id="sessions-table-section">
+            <div class="panel-header">
+                <h3>Sessions Table</h3>
+            </div>
+            <div class="admin-table-container">
+                <table class="admin-data-table" id="admin-sessions-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>ID Number</th>
+                            <th>Name</th>
+                            <th>Lab</th>
+                            <th>Purpose</th>
+                            <th>Time In</th>
+                            <th>Time Out</th>
+                            <th>Duration</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-sessions-tbody">
+                    </tbody>
+                </table>
+            </div>
         </section>
     </main>
 

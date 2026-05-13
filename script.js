@@ -928,7 +928,7 @@ function updateLandingPageForLoggedInUser() {
 
     // Load new dashboard sections
     loadUserSitinSummary(user.idNumber);
-    loadUserSessionTable(user.idNumber);
+    loadSitinHistory(user.idNumber);
     loadUserLabAvailability();
     updateStudentReservationStatus();
 
@@ -968,6 +968,16 @@ function updateLandingPageForLoggedInUser() {
         makeReservationBtn.addEventListener('click', function() {
             openReserveModal(user);
         });
+    }
+
+    // Lab availability modal
+    const viewLabsBtn = document.getElementById('view-labs-btn');
+    if (viewLabsBtn && !viewLabsBtn.dataset.hasListener) {
+        viewLabsBtn.dataset.hasListener = 'true';
+        const labModal = document.getElementById('lab-avail-modal');
+        viewLabsBtn.addEventListener('click', () => { labModal.style.display = 'flex'; });
+        document.getElementById('lab-avail-modal-close').onclick = () => { labModal.style.display = 'none'; };
+        labModal.addEventListener('click', (e) => { if (e.target === labModal) labModal.style.display = 'none'; });
     }
 
     // Notification bell
@@ -1289,6 +1299,79 @@ function loadUserSessionTable(studentId) {
             <td>${durStr}</td>
             <td>${escapeHTML(String(pcNo))}</td>
             <td><span class="status-badge status-${s.status || 'completed'}">${s.status || 'completed'}</span></td>
+        </tr>`;
+    }).join('');
+}
+
+// ============================================
+// Student Dashboard - Sit-in History
+// ============================================
+
+function loadSitinHistory(studentId) {
+    const tbody = document.getElementById('sitin-history-tbody');
+    if (!tbody) return;
+
+    const records = getSitInRecords().filter(r => r.idNumber === studentId);
+    const sorted = records.sort((a, b) => new Date(b.startTime || 0) - new Date(a.startTime || 0));
+
+    if (sorted.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-table-msg">No sit-in history yet.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = sorted.map(s => {
+        const startDate = s.startTime ? new Date(s.startTime) : null;
+        const endDate   = s.endTime   ? new Date(s.endTime)   : null;
+        const dateStr   = startDate ? startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
+        const timeInStr = startDate ? startDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+        const timeOutStr = endDate  ? endDate.toLocaleTimeString('en-US',   { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+        const durStr    = startDate && endDate ? calculateDuration(s.startTime, s.endTime) : 'N/A';
+        return `<tr>
+            <td>${dateStr}</td>
+            <td>${escapeHTML(s.lab || s.labName || '—')}</td>
+            <td>${escapeHTML(s.purpose || '—')}</td>
+            <td>${timeInStr}</td>
+            <td>${timeOutStr}</td>
+            <td>${durStr}</td>
+        </tr>`;
+    }).join('');
+}
+
+// ============================================
+// Admin - Sessions Table
+// ============================================
+
+function loadAdminSessionsTable() {
+    const tbody = document.getElementById('admin-sessions-tbody');
+    if (!tbody) return;
+
+    const records = getSitInRecords();
+    const students = getStudents();
+    const sorted = records.sort((a, b) => new Date(b.startTime || 0) - new Date(a.startTime || 0));
+
+    if (sorted.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-table-msg">No completed sessions yet.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = sorted.map(s => {
+        const student   = students.find(st => st.idNumber === s.idNumber);
+        const name      = student ? `${student.firstName} ${student.lastName}` : s.idNumber;
+        const startDate = s.startTime ? new Date(s.startTime) : null;
+        const endDate   = s.endTime   ? new Date(s.endTime)   : null;
+        const dateStr   = startDate ? startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
+        const timeInStr = startDate ? startDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+        const timeOutStr = endDate  ? endDate.toLocaleTimeString('en-US',   { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+        const durStr    = startDate && endDate ? calculateDuration(s.startTime, s.endTime) : 'N/A';
+        return `<tr>
+            <td>${dateStr}</td>
+            <td>${escapeHTML(s.idNumber)}</td>
+            <td>${escapeHTML(name)}</td>
+            <td>${escapeHTML(s.lab || s.labName || '—')}</td>
+            <td>${escapeHTML(s.purpose || '—')}</td>
+            <td>${timeInStr}</td>
+            <td>${timeOutStr}</td>
+            <td>${durStr}</td>
         </tr>`;
     }).join('');
 }
@@ -1698,6 +1781,9 @@ function initAdminDashboard() {
 
     // Load statistics
     loadDashboardStats();
+
+    // Load sessions table
+    loadAdminSessionsTable();
 
     // Load announcements
     loadAnnouncements();
