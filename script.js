@@ -1346,7 +1346,7 @@ function loadAdminSessionsTable() {
     if (!tbody) return;
 
     const records = getSitInRecords();
-    const students = getStudents();
+    const students = getUsers();
     const sorted = records.sort((a, b) => new Date(b.startTime || 0) - new Date(a.startTime || 0));
 
     if (sorted.length === 0) {
