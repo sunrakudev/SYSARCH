@@ -148,6 +148,46 @@
         </div>
     </div>
 
+    <!-- Software Modal -->
+    <div class="admin-modal" id="software-modal">
+        <div class="admin-modal-content">
+            <div class="modal-header">
+                <h3 id="software-modal-title">Manage Software</h3>
+                <button class="modal-close" id="software-modal-close">&times;</button>
+            </div>
+            <input type="hidden" id="software-lab-id">
+            <div class="field-group">
+                <label>Installed Software</label>
+                <div class="software-checklist" id="software-checklist">
+                    <label><input type="checkbox" value="Visual Studio Code"> Visual Studio Code</label>
+                    <label><input type="checkbox" value="Python"> Python</label>
+                    <label><input type="checkbox" value="Node.js"> Node.js</label>
+                    <label><input type="checkbox" value="Eclipse"> Eclipse</label>
+                    <label><input type="checkbox" value="NetBeans"> NetBeans</label>
+                    <label><input type="checkbox" value="Android Studio"> Android Studio</label>
+                    <label><input type="checkbox" value="Java JDK"> Java JDK</label>
+                    <label><input type="checkbox" value="Git"> Git</label>
+                    <label><input type="checkbox" value="MySQL Workbench"> MySQL Workbench</label>
+                    <label><input type="checkbox" value="VMware"> VMware</label>
+                    <label><input type="checkbox" value="Microsoft Office"> Microsoft Office</label>
+                    <label><input type="checkbox" value="Cisco Packet Tracer"> Cisco Packet Tracer</label>
+                </div>
+            </div>
+            <div class="field-group" style="margin-top:0.75rem;">
+                <label for="software-custom">Add Custom Software</label>
+                <div style="display:flex;gap:0.5rem;">
+                    <input type="text" id="software-custom" placeholder="e.g., Figma, Arduino IDE...">
+                    <button type="button" class="btn admin-submit-btn" id="software-add-custom-btn">Add</button>
+                </div>
+                <div id="software-custom-list" style="margin-top:0.5rem;display:flex;flex-wrap:wrap;gap:0.4rem;"></div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn modal-cancel-btn" id="software-cancel">Cancel</button>
+                <button type="button" class="btn admin-submit-btn" id="software-save-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Search Modal -->
     <div class="admin-modal" id="search-modal">
         <div class="admin-modal-content search-modal-content">

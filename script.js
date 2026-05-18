@@ -1183,6 +1183,18 @@ function openReserveModal(user) {
     if (startInput) startInput.value = '';
     if (endInput) endInput.value = '';
 
+    // Software preview on lab select
+    const softwareHint = document.getElementById('reserve-software-hint');
+    labSelect.onchange = function() {
+        if (!softwareHint) return;
+        const lab = getLabRooms().find(l => l.id === this.value);
+        const sw = lab?.software || [];
+        softwareHint.innerHTML = sw.length > 0
+            ? sw.map(s => `<span class="ulab-software-tag">${escapeHTML(s)}</span>`).join('')
+            : '';
+    };
+    if (softwareHint) softwareHint.innerHTML = '';
+
     const closeBtn = document.getElementById('reserve-modal-close');
     const cancelBtn = document.getElementById('reserve-modal-cancel');
     const closeModal = () => { modal.style.display = 'none'; };
@@ -1506,7 +1518,7 @@ function loadAdminSessionsTable() {
     const sorted = records.sort((a, b) => new Date(b.startTime || 0) - new Date(a.startTime || 0));
 
     if (sorted.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="empty-table-msg">No completed sessions yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-table-msg">No completed sessions yet.</td></tr>';
         return;
     }
 
@@ -1518,7 +1530,6 @@ function loadAdminSessionsTable() {
         const dateStr   = startDate ? startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
         const timeInStr = startDate ? startDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
         const timeOutStr = endDate  ? endDate.toLocaleTimeString('en-US',   { hour: '2-digit', minute: '2-digit' }) : 'N/A';
-        const durStr    = startDate && endDate ? calculateDuration(s.startTime, s.endTime) : 'N/A';
         return `<tr>
             <td>${dateStr}</td>
             <td>${escapeHTML(s.idNumber)}</td>
@@ -1527,7 +1538,6 @@ function loadAdminSessionsTable() {
             <td>${escapeHTML(s.purpose || '—')}</td>
             <td>${timeInStr}</td>
             <td>${timeOutStr}</td>
-            <td>${durStr}</td>
         </tr>`;
     }).join('');
 }
@@ -1552,6 +1562,9 @@ function loadUserLabAvailability() {
         const isFull = !isUnavailable && pct >= 100;
         const statusClass = isUnavailable ? 'ulab-maintenance' : isFull ? 'ulab-full' : 'ulab-available';
         const statusText = isUnavailable ? lab.status : isFull ? 'Full' : 'Available';
+        const softwareTags = (lab.software || []).length > 0
+            ? `<div class="ulab-software">${(lab.software).map(s => `<span class="ulab-software-tag">${escapeHTML(s)}</span>`).join('')}</div>`
+            : '';
         return `<div class="user-lab-item ${statusClass}">
             <div class="ulab-header">
                 <span class="ulab-name">${escapeHTML(lab.name)}</span>
@@ -1561,6 +1574,7 @@ function loadUserLabAvailability() {
                 <div class="ulab-bar-fill" style="width:${pct}%"></div>
             </div>
             <span class="ulab-count">${lab.currentOccupancy}/${lab.capacity} seats occupied</span>
+            ${softwareTags}
         </div>`;
     }).join('');
 }
@@ -2326,7 +2340,19 @@ function loadUserAnnouncements() {
     }
 }
 
-function initAdminStudents() {
+async function syncStudentsFromSupabase() {
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const { data: students, error } = await client.from('students').select('*');
+    if (error || !students || students.length === 0) return;
+
+    const mapped = students.map(dbStudentToUser);
+    saveUsers(mapped);
+    return mapped;
+}
+
+async function initAdminStudents() {
     if (!isAdminLoggedIn()) {
         window.location.href = 'adminlogin.html';
         return;
@@ -2335,6 +2361,7 @@ function initAdminStudents() {
     // Initialize admin dropdowns
     initAdminDropdowns();
 
+    await syncStudentsFromSupabase();
     loadStudentsTable();
     populateManualSitInLabSelect();
 
@@ -2557,11 +2584,12 @@ function initAdminStudents() {
     }
 }
 
-function loadStudentsTable(searchTerm = '') {
+async function loadStudentsTable(searchTerm = '') {
     const tbody = document.getElementById('students-table-body');
     if (!tbody) return;
 
-    let users = getUsers();
+    const synced = await syncStudentsFromSupabase();
+    let users = synced || getUsers();
 
     // Filter by search term
     if (searchTerm) {
@@ -2587,7 +2615,7 @@ function loadStudentsTable(searchTerm = '') {
         <tr>
             <td>${u.idNumber}</td>
             <td>${u.lastName}, ${u.firstName} ${u.middleName || ''}</td>
-            <td>${u.courseLevel}${getYearSuffix(u.courseLevel)}</td>
+            <td>${u.courseLevel}</td>
             <td>${u.course}</td>
             <td>${u.remainingSessions || 30}</td>
             <td class="actions-cell">
@@ -3050,7 +3078,7 @@ function initAdminRecords() {
     const exportBtn = document.getElementById('export-records-btn');
     if (exportBtn) {
         exportBtn.addEventListener('click', function() {
-            exportRecordsToCSV();
+            exportRecordsToPDF();
         });
     }
 
@@ -3245,39 +3273,40 @@ function loadRecordsTable(searchTerm = '') {
     }
 }
 
-function exportRecordsToCSV() {
+function exportRecordsToPDF() {
     const records = getSitInRecords();
     if (records.length === 0) {
         showMessage('No records to export.', 'error');
         return;
     }
 
-    const headers = ['Sit ID', 'Student ID', 'Name', 'Lab', 'Purpose', 'Start Time', 'End Time', 'Status'];
-    const csvContent = [
-        headers.join(','),
-        ...records.map(r => [
-            csvEscape(r.sitIdNumber || 'N/A'),
-            csvEscape(r.idNumber),
-            csvEscape(r.name),
-            csvEscape(r.lab),
-            csvEscape(r.purpose || 'N/A'),
-            csvEscape(new Date(r.startTime).toLocaleString()),
-            csvEscape(r.endTime ? new Date(r.endTime).toLocaleString() : 'Active'),
-            csvEscape(r.status)
-        ].join(','))
-    ].join('\n');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape' });
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `sitin-records-${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    doc.setFontSize(14);
+    doc.text('CCS Sit-in Records', 14, 15);
+    doc.setFontSize(9);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
 
-    showMessage('Records exported successfully!', 'success');
+    doc.autoTable({
+        startY: 27,
+        head: [['Sit ID', 'Student ID', 'Name', 'Lab', 'Purpose', 'Start Time', 'End Time', 'Status']],
+        body: records.map(r => [
+            r.sitIdNumber || 'N/A',
+            r.idNumber,
+            r.name,
+            r.lab || 'N/A',
+            r.purpose || 'N/A',
+            new Date(r.startTime).toLocaleString(),
+            r.endTime ? new Date(r.endTime).toLocaleString() : 'Active',
+            r.status
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [30, 90, 168] }
+    });
+
+    doc.save(`sitin-records-${new Date().toISOString().split('T')[0]}.pdf`);
+    showMessage('Records exported as PDF!', 'success');
 }
 
 // ============================================
@@ -3457,6 +3486,7 @@ function initAdminLabs() {
 
     loadLabManagementGrid();
     updateLabStats();
+    initSoftwareModal();
 
     // Modal handlers for lab status modal
     const modalClose = document.getElementById('lab-modal-close');
@@ -3565,7 +3595,12 @@ function loadLabManagementGrid() {
 
     const labs = updateLabOccupancy();
 
-    grid.innerHTML = labs.map(lab => `
+    grid.innerHTML = labs.map(lab => {
+        const software = lab.software || [];
+        const softwareTags = software.length > 0
+            ? software.map(s => `<span class="lab-software-tag">${escapeHTML(s)}</span>`).join('')
+            : '<span style="font-size:0.78rem;opacity:0.5">No software listed</span>';
+        return `
         <div class="lab-management-card ${lab.status}">
             <div class="lab-mgmt-header">
                 <h4>${lab.name}</h4>
@@ -3576,17 +3611,26 @@ function loadLabManagementGrid() {
                 <p><strong>Current:</strong> ${lab.currentOccupancy} students</p>
                 <p><strong>Available Seats:</strong> ${lab.capacity - lab.currentOccupancy}</p>
             </div>
+            <div class="lab-software-tags">${softwareTags}</div>
             <div class="lab-mgmt-progress">
                 <div class="progress-bar">
                     <div class="progress-fill" style="width: ${(lab.currentOccupancy / lab.capacity) * 100}%"></div>
                 </div>
             </div>
             <div class="lab-mgmt-actions">
+                <button class="btn lab-software-btn" data-lab-id="${lab.id}">Software</button>
                 <button class="btn lab-edit-btn" data-lab-id="${lab.id}">Edit</button>
                 <button class="btn lab-delete-btn" data-lab-id="${lab.id}">Delete</button>
             </div>
         </div>
-    `).join('');
+    `}).join('');
+
+    // Software button handlers
+    grid.querySelectorAll('.lab-software-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            openSoftwareModal(this.dataset.labId);
+        });
+    });
 
     // Add edit button handlers
     grid.querySelectorAll('.lab-edit-btn').forEach(btn => {
@@ -3611,6 +3655,81 @@ function loadLabManagementGrid() {
                 showMessage('Lab deleted successfully!', 'success');
             }
         });
+    });
+}
+
+function openSoftwareModal(labId) {
+    const lab = getLabRooms().find(l => l.id === labId);
+    if (!lab) return;
+
+    document.getElementById('software-lab-id').value = labId;
+    document.getElementById('software-modal-title').textContent = `Software — ${lab.name}`;
+
+    const saved = lab.software || [];
+
+    // Reset checkboxes
+    document.querySelectorAll('#software-checklist input[type="checkbox"]').forEach(cb => {
+        cb.checked = saved.includes(cb.value);
+    });
+
+    // Show custom (non-preset) software as tags
+    const presets = Array.from(document.querySelectorAll('#software-checklist input[type="checkbox"]')).map(cb => cb.value);
+    const customList = document.getElementById('software-custom-list');
+    customList.innerHTML = '';
+    saved.filter(s => !presets.includes(s)).forEach(s => addCustomTag(s));
+
+    document.getElementById('software-custom').value = '';
+    document.getElementById('software-modal').style.display = 'flex';
+}
+
+function addCustomTag(name) {
+    const list = document.getElementById('software-custom-list');
+    const tag = document.createElement('span');
+    tag.className = 'software-custom-tag';
+    tag.dataset.name = name;
+    tag.innerHTML = `${escapeHTML(name)} <button type="button" title="Remove">&times;</button>`;
+    tag.querySelector('button').addEventListener('click', () => tag.remove());
+    list.appendChild(tag);
+}
+
+function saveSoftware() {
+    const labId = document.getElementById('software-lab-id').value;
+    const labs = getLabRooms();
+    const lab = labs.find(l => l.id === labId);
+    if (!lab) return;
+
+    const checked = Array.from(document.querySelectorAll('#software-checklist input[type="checkbox"]:checked')).map(cb => cb.value);
+    const custom = Array.from(document.querySelectorAll('#software-custom-list .software-custom-tag')).map(t => t.dataset.name);
+
+    lab.software = [...checked, ...custom];
+    saveLabRooms(labs);
+
+    document.getElementById('software-modal').style.display = 'none';
+    loadLabManagementGrid();
+    showMessage('Software updated!', 'success');
+}
+
+function initSoftwareModal() {
+    const modal = document.getElementById('software-modal');
+    if (!modal) return;
+
+    document.getElementById('software-modal-close').onclick = () => modal.style.display = 'none';
+    document.getElementById('software-cancel').onclick = () => modal.style.display = 'none';
+    document.getElementById('software-save-btn').onclick = saveSoftware;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+
+    document.getElementById('software-add-custom-btn').addEventListener('click', () => {
+        const input = document.getElementById('software-custom');
+        const name = input.value.trim();
+        if (!name) return;
+        const presets = Array.from(document.querySelectorAll('#software-checklist input[type="checkbox"]')).map(cb => cb.value);
+        const existing = Array.from(document.querySelectorAll('#software-custom-list .software-custom-tag')).map(t => t.dataset.name);
+        if (presets.includes(name) || existing.includes(name)) {
+            showMessage('Software already in the list.', 'error');
+            return;
+        }
+        addCustomTag(name);
+        input.value = '';
     });
 }
 
