@@ -17,6 +17,88 @@ const STORAGE_KEYS = {
     RESERVATION_ENABLED: 'ccs_reservation_enabled'
 };
 
+const SUPABASE_CONFIG = {
+    URL: 'https://qjrfkgtwzvqkaxduaore.supabase.co',
+    KEY: 'sb_publishable_nSYIVlTF9pvqApBZ06bZwg_dzXdMSss'
+};
+
+let supabaseClient = null;
+
+function getSupabaseClient() {
+    if (!window.supabase || !SUPABASE_CONFIG.URL || !SUPABASE_CONFIG.KEY) {
+        return null;
+    }
+
+    if (!supabaseClient) {
+        supabaseClient = window.supabase.createClient(SUPABASE_CONFIG.URL, SUPABASE_CONFIG.KEY);
+    }
+
+    return supabaseClient;
+}
+
+function getStudentAuthEmail(idNumber) {
+    return `${String(idNumber).trim().toLowerCase()}@ccs-sitin.local`;
+}
+
+function dbStudentToUser(student) {
+    if (!student) return null;
+
+    return {
+        idNumber: student.id_number,
+        firstName: student.first_name,
+        lastName: student.last_name,
+        middleName: student.middle_name || '',
+        email: student.email || '',
+        course: student.course || '',
+        courseLevel: student.course_level || '',
+        address: student.address || '',
+        remainingSessions: student.remaining_sessions ?? 30,
+        registeredAt: student.registered_at || new Date().toISOString()
+    };
+}
+
+function saveOrUpdateLocalUser(userData) {
+    const users = getUsers();
+    const existingIndex = users.findIndex(u => u.idNumber === userData.idNumber);
+
+    if (existingIndex === -1) {
+        users.push(userData);
+    } else {
+        users[existingIndex] = { ...users[existingIndex], ...userData };
+    }
+
+    saveUsers(users);
+}
+
+async function restoreSupabaseUserSession() {
+    if (getCurrentUser()) return;
+
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const { data: userData } = await client.auth.getUser();
+    const authUser = userData?.user;
+    if (!authUser) return;
+
+    const { data: student } = await client
+        .from('students')
+        .select('*')
+        .eq('user_id', authUser.id)
+        .single();
+
+    const user = dbStudentToUser(student);
+    if (!user) return;
+
+    saveOrUpdateLocalUser(user);
+    setCurrentUser({
+        idNumber: user.idNumber,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        course: user.course,
+        courseLevel: user.courseLevel
+    });
+}
+
 // ============================================
 // Default Admin Account
 // ============================================
@@ -60,13 +142,49 @@ function setCurrentUser(user) {
     }
 }
 
-function registerUser(userData) {
+async function registerUser(userData) {
     const users = getUsers();
     
     // Check if ID number already exists
     const existingUser = users.find(u => u.idNumber === userData.idNumber);
     if (existingUser) {
         return { success: false, message: 'ID Number is already registered. Please use a different ID or login.' };
+    }
+
+    const client = getSupabaseClient();
+    if (client) {
+        const authEmail = getStudentAuthEmail(userData.idNumber);
+        const { data: authData, error: authError } = await client.auth.signUp({
+            email: authEmail,
+            password: userData.password
+        });
+
+        if (authError) {
+            return { success: false, message: authError.message };
+        }
+
+        if (!authData.user) {
+            return { success: false, message: 'Registration failed. Please check Supabase email confirmation settings.' };
+        }
+
+        const { error: profileError } = await client.from('students').insert({
+            user_id: authData.user.id,
+            id_number: userData.idNumber,
+            first_name: userData.firstName,
+            last_name: userData.lastName,
+            middle_name: userData.middleName || null,
+            email: userData.email,
+            course: userData.course,
+            course_level: userData.courseLevel,
+            address: userData.address,
+            remaining_sessions: userData.remainingSessions ?? 30
+        });
+
+        if (profileError) {
+            return { success: false, message: profileError.message };
+        }
+
+        await client.auth.signOut();
     }
     
     // Add new user
@@ -76,7 +194,48 @@ function registerUser(userData) {
     return { success: true, message: 'Account created successfully! Redirecting to login...' };
 }
 
-function loginUser(idNumber, password, rememberMe = false) {
+async function loginUser(idNumber, password, rememberMe = false) {
+    const client = getSupabaseClient();
+    if (client) {
+        const { data: authData, error: authError } = await client.auth.signInWithPassword({
+            email: getStudentAuthEmail(idNumber),
+            password
+        });
+
+        if (authError) {
+            return { success: false, message: 'Invalid ID Number or Password. Please try again.' };
+        }
+
+        const { data: student, error: studentError } = await client
+            .from('students')
+            .select('*')
+            .eq('user_id', authData.user.id)
+            .single();
+
+        if (studentError || !student) {
+            return { success: false, message: studentError?.message || 'Student profile was not found.' };
+        }
+
+        const user = dbStudentToUser(student);
+        saveOrUpdateLocalUser(user);
+
+        setCurrentUser({
+            idNumber: user.idNumber,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            course: user.course,
+            courseLevel: user.courseLevel
+        });
+
+        if (rememberMe) {
+            localStorage.setItem(STORAGE_KEYS.REMEMBER_ME, 'true');
+        } else {
+            localStorage.removeItem(STORAGE_KEYS.REMEMBER_ME);
+        }
+
+        return { success: true, message: 'Login successful! Redirecting to dashboard...', user };
+    }
+
     const users = getUsers();
     const user = users.find(u => u.idNumber === idNumber && u.password === password);
     
@@ -104,6 +263,11 @@ function loginUser(idNumber, password, rememberMe = false) {
 }
 
 function logoutUser() {
+    const client = getSupabaseClient();
+    if (client) {
+        client.auth.signOut();
+    }
+
     setCurrentUser(null);
     localStorage.removeItem(STORAGE_KEYS.REMEMBER_ME);
 }
@@ -471,7 +635,7 @@ function addStudent(studentData) {
 
     const newStudent = {
         ...studentData,
-        password: studentData.idNumber, // Default password is ID number
+        password: studentData.password || studentData.idNumber,
         remainingSessions: studentData.remainingSessions || 30,
         registeredAt: new Date().toISOString()
     };
@@ -503,14 +667,6 @@ function deleteStudent(idNumber) {
     const sitins = getCurrentSitIns();
     const filteredSitins = sitins.filter(s => s.idNumber !== idNumber);
     saveCurrentSitIns(filteredSitins);
-}
-
-function resetAllSessions() {
-    const users = getUsers();
-    users.forEach(user => {
-        user.remainingSessions = 30;
-    });
-    saveUsers(users);
 }
 
 // ============================================
@@ -630,7 +786,7 @@ function initRegistrationForm() {
     const form = document.getElementById('registration-form');
     if (!form) return;
 
-    form.addEventListener('submit', function(e) {
+    form.addEventListener('submit', async function(e) {
         e.preventDefault();
 
         // Get form values
@@ -684,7 +840,7 @@ function initRegistrationForm() {
         };
 
         // Register user
-        const result = registerUser(userData);
+        const result = await registerUser(userData);
 
         if (result.success) {
             showMessage(result.message, 'success');
@@ -712,7 +868,7 @@ function initLoginForm() {
         }
     }
 
-    form.addEventListener('submit', function(e) {
+    form.addEventListener('submit', async function(e) {
         e.preventDefault();
 
         const idNumber = document.getElementById('login-id')?.value.trim();
@@ -724,7 +880,7 @@ function initLoginForm() {
             return;
         }
 
-        const result = loginUser(idNumber, password, rememberMe);
+        const result = await loginUser(idNumber, password, rememberMe);
 
         if (result.success) {
             // Remember ID if checkbox is checked
@@ -2188,18 +2344,6 @@ function initAdminStudents() {
         addBtn.addEventListener('click', () => openStudentModal());
     }
 
-    // Reset sessions button
-    const resetBtn = document.getElementById('reset-sessions-btn');
-    if (resetBtn) {
-        resetBtn.addEventListener('click', function() {
-            if (confirm('Are you sure you want to reset all students\' sessions to 30?')) {
-                resetAllSessions();
-                loadStudentsTable();
-                showMessage('All sessions reset to 30!', 'success');
-            }
-        });
-    }
-
     // Modal handlers
     const modalClose = document.getElementById('modal-close');
     const modalCancel = document.getElementById('modal-cancel');
@@ -2278,15 +2422,45 @@ function initAdminStudents() {
         studentForm.addEventListener('submit', function(e) {
             e.preventDefault();
             const editId = document.getElementById('edit-student-id').value;
+            const email = document.getElementById('modal-email').value.trim();
+            const password = document.getElementById('modal-password').value;
+            const confirmPassword = document.getElementById('modal-confirm-password').value;
             const studentData = {
                 idNumber: document.getElementById('modal-id-number').value.trim(),
                 lastName: document.getElementById('modal-last-name').value.trim(),
                 firstName: document.getElementById('modal-first-name').value.trim(),
                 middleName: document.getElementById('modal-middle-name').value.trim(),
+                email,
                 course: document.getElementById('modal-course').value,
                 courseLevel: document.getElementById('modal-level').value,
+                address: document.getElementById('modal-address').value.trim(),
                 remainingSessions: parseInt(document.getElementById('modal-sessions').value) || 30
             };
+
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showMessage('Please enter a valid email address.', 'error');
+                return;
+            }
+
+            if (!editId && !password) {
+                showMessage('Please enter a password for the student.', 'error');
+                return;
+            }
+
+            if (password || confirmPassword) {
+                if (password !== confirmPassword) {
+                    showMessage('Passwords do not match. Please try again.', 'error');
+                    return;
+                }
+
+                if (password.length < 6) {
+                    showMessage('Password must be at least 6 characters long.', 'error');
+                    return;
+                }
+
+                studentData.password = password;
+            }
 
             let result;
             if (editId) {
@@ -2477,6 +2651,12 @@ function openStudentModal(student = null) {
         document.getElementById('modal-last-name').value = student.lastName;
         document.getElementById('modal-first-name').value = student.firstName;
         document.getElementById('modal-middle-name').value = student.middleName || '';
+        document.getElementById('modal-email').value = student.email || '';
+        document.getElementById('modal-address').value = student.address || '';
+        document.getElementById('modal-password').value = '';
+        document.getElementById('modal-confirm-password').value = '';
+        document.getElementById('modal-password').placeholder = 'Leave blank to keep current password';
+        document.getElementById('modal-confirm-password').placeholder = 'Leave blank to keep current password';
         document.getElementById('modal-course').value = student.course;
         document.getElementById('modal-level').value = student.courseLevel;
         document.getElementById('modal-sessions').value = student.remainingSessions || 30;
@@ -2486,6 +2666,8 @@ function openStudentModal(student = null) {
         document.getElementById('edit-student-id').value = '';
         document.getElementById('modal-id-number').disabled = false;
         document.getElementById('student-form').reset();
+        document.getElementById('modal-password').placeholder = 'Enter password';
+        document.getElementById('modal-confirm-password').placeholder = 'Re-enter password';
         document.getElementById('modal-sessions').value = 30;
     }
 
@@ -5023,7 +5205,7 @@ function setupAdminSearchModal() {
 // Initialize on Page Load
 // ============================================
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     // Initialize default admin
     initDefaultAdmin();
 
@@ -5034,6 +5216,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize password toggles on all pages
     initPasswordToggles();
     initPasswordStrength();
+
+    await restoreSupabaseUserSession();
 
     // Check which page we're on and initialize accordingly
     const currentPage = window.location.pathname.split('/').pop();

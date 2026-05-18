@@ -107,7 +107,6 @@
         <section class="admin-actions-bar">
             <div class="action-buttons">
                 <button class="btn admin-add-btn" id="add-student-btn">+ Add Student</button>
-                <button class="btn admin-reset-btn" id="reset-sessions-btn">Reset All Sessions</button>
             </div>
             <div class="entries-control">
                 <label for="entries-per-page">Show</label>
@@ -174,34 +173,28 @@
                         <input id="modal-middle-name" type="text">
                     </div>
                     <div class="field-group">
+                        <label for="modal-email">Email Address</label>
+                        <input id="modal-email" type="email" placeholder="e.g., student@uc.edu.ph" required>
+                    </div>
+                    <div class="field-group">
+                        <label for="modal-password">Password</label>
+                        <input id="modal-password" type="password" placeholder="Enter password">
+                    </div>
+                    <div class="field-group">
+                        <label for="modal-confirm-password">Confirm Password</label>
+                        <input id="modal-confirm-password" type="password" placeholder="Re-enter password">
+                    </div>
+                    <div class="field-group">
                         <label for="modal-course">Course</label>
                         <select id="modal-course" required>
                             <option value="">Select Course</option>
-                            <option value="BSIT">BSIT</option>
-                            <option value="BSCS">BSCS</option>
-                            <option value="BSIS">BSIS</option>
-                            <option value="ACT">ACT</option>
-                            <option value="CpE">Computer Engineering</option>
-                            <option value="CE">Civil Engineering</option>
-                            <option value="ME">Mechanical Engineering</option>
-                            <option value="EE">Electrical Engineering</option>
-                            <option value="IE">Industrial Engineering</option>
-                            <option value="NAME">Naval Architecture and Marine Engineering</option>
-                            <option value="BEEd">Bachelor of Elementary Education</option>
-                            <option value="BSEd">Bachelor of Secondary Education</option>
-                            <option value="CRIM">Criminology</option>
-                            <option value="COMM">Commerce</option>
-                            <option value="ACCT">Accountancy</option>
-                            <option value="HRM">Hotel and Restaurant Management</option>
-                            <option value="CA">Customs Administration</option>
-                            <option value="CS">Computer Secretarial</option>
-                            <option value="IP">Industrial Psychology</option>
-                            <option value="ABPS">AB Political Science</option>
-                            <option value="ABENG">AB English</option>
+                            <option value="BSIT">Bachelor of Science in Information Technology</option>
+                            <option value="BSCS">Bachelor of Science in Computer Science</option>
+                            <option value="ACT">Associate in Computer Technology</option>
                         </select>
                     </div>
                     <div class="field-group">
-                        <label for="modal-level">Year Level</label>
+                        <label for="modal-level">Course Level</label>
                         <select id="modal-level" required>
                             <option value="">Select Level</option>
                             <option value="1">1st Year</option>
@@ -215,6 +208,10 @@
                         <label for="modal-sessions">Remaining Sessions</label>
                         <input id="modal-sessions" type="number" value="30" min="0">
                     </div>
+                </div>
+                <div class="field-group">
+                    <label for="modal-address">Address</label>
+                    <input id="modal-address" type="text" placeholder="Enter Full Address" required>
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn modal-cancel-btn" id="modal-cancel">Cancel</button>
