@@ -891,7 +891,7 @@ function initLoginForm() {
             }
 
             showMessage(result.message, 'success');
-            redirect('landingpage.html');
+            redirect('index.html');
         } else {
             showMessage(result.message, 'error');
         }
@@ -1014,7 +1014,7 @@ function updateNavForLoggedInUser() {
                     logoutUser();
                     showMessage('You have been logged out successfully.', 'info');
                     setTimeout(() => {
-                        window.location.href = 'landingpage.html';
+                        window.location.href = 'index.html';
                     }, 1500);
                 });
             }
@@ -1087,6 +1087,7 @@ function updateLandingPageForLoggedInUser() {
     loadSitinHistory(user.idNumber);
     loadUserLabAvailability();
     updateStudentReservationStatus();
+    loadLandingLeaderboard(user.idNumber);
 
     // Handle profile photo
     if (fullUser?.profilePhoto) {
@@ -1112,7 +1113,7 @@ function updateLandingPageForLoggedInUser() {
             logoutUser();
             showMessage('You have been logged out successfully.', 'info');
             setTimeout(() => {
-                window.location.href = 'landingpage.html';
+                window.location.href = 'index.html';
             }, 1500);
         });
     }
@@ -2255,35 +2256,10 @@ function loadDashboardLeaderboard() {
     const listEl = document.getElementById('leaderboard-list');
     if (!listEl) return;
 
-    const records = getSitInRecords();
-    const users = getUsers();
-
     const searchTerm = (document.getElementById('leaderboard-search')?.value || '').toLowerCase();
     const sortBy = document.getElementById('leaderboard-sort')?.value || 'sessions';
 
-    const sessionCounts = {};
-    const sessionDurations = {};
-    records.forEach(r => {
-        if (!r.idNumber) return;
-        sessionCounts[r.idNumber] = (sessionCounts[r.idNumber] || 0) + 1;
-        if (r.startTime && r.endTime) {
-            const dur = new Date(r.endTime) - new Date(r.startTime);
-            if (!isNaN(dur) && dur > 0) {
-                sessionDurations[r.idNumber] = (sessionDurations[r.idNumber] || 0) + dur;
-            }
-        }
-    });
-
-    let leaderboard = Object.keys(sessionCounts).map(id => {
-        const user = users.find(u => u.idNumber === id);
-        return {
-            idNumber: id,
-            name: user ? `${user.firstName} ${user.lastName}` : id,
-            course: user?.course || 'N/A',
-            sessions: sessionCounts[id],
-            totalMinutes: Math.floor((sessionDurations[id] || 0) / 60000)
-        };
-    });
+    let leaderboard = buildLeaderboardEntries();
 
     if (searchTerm) {
         leaderboard = leaderboard.filter(e =>
@@ -2292,7 +2268,9 @@ function loadDashboardLeaderboard() {
         );
     }
 
-    leaderboard.sort((a, b) => sortBy === 'hours' ? b.totalMinutes - a.totalMinutes : b.sessions - a.sessions);
+    leaderboard.sort((a, b) => sortBy === 'hours'
+        ? b.totalMinutes - a.totalMinutes
+        : b.sessions - a.sessions || b.totalMinutes - a.totalMinutes);
     leaderboard = leaderboard.slice(0, 10);
 
     if (leaderboard.length === 0) {
@@ -2314,6 +2292,76 @@ function loadDashboardLeaderboard() {
             <div class="lb-stats">
                 <span class="lb-sessions">${entry.sessions} session${entry.sessions !== 1 ? 's' : ''}</span>
                 <span class="lb-duration">${durationStr}</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function buildLeaderboardEntries() {
+    const records = getSitInRecords();
+    const users = getUsers();
+    const sessionCounts = {};
+    const sessionDurations = {};
+
+    records.forEach(r => {
+        if (!r.idNumber) return;
+        sessionCounts[r.idNumber] = (sessionCounts[r.idNumber] || 0) + 1;
+        if (r.startTime && r.endTime) {
+            const dur = new Date(r.endTime) - new Date(r.startTime);
+            if (!isNaN(dur) && dur > 0) {
+                sessionDurations[r.idNumber] = (sessionDurations[r.idNumber] || 0) + dur;
+            }
+        }
+    });
+
+    return Object.keys(sessionCounts).map(id => {
+        const user = users.find(u => u.idNumber === id);
+        return {
+            idNumber: id,
+            name: user ? `${user.firstName} ${user.lastName}` : id,
+            course: user?.course || 'N/A',
+            sessions: sessionCounts[id],
+            totalMinutes: Math.floor((sessionDurations[id] || 0) / 60000)
+        };
+    }).sort((a, b) => {
+        if (b.sessions !== a.sessions) return b.sessions - a.sessions;
+        return b.totalMinutes - a.totalMinutes;
+    });
+}
+
+function formatLeaderboardDuration(totalMinutes) {
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    if (totalMinutes <= 0) return 'No time yet';
+    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+}
+
+function loadLandingLeaderboard(currentUserId) {
+    const listEl = document.getElementById('landing-leaderboard-list');
+    if (!listEl) return;
+
+    const leaderboard = buildLeaderboardEntries();
+
+    if (leaderboard.length === 0) {
+        listEl.innerHTML = '<p class="no-data-msg">No sit-in sessions recorded yet.</p>';
+        return;
+    }
+
+    listEl.innerHTML = leaderboard.slice(0, 8).map((entry, index) => {
+        const rank = index + 1;
+        const rankClass = rank <= 3 ? `landing-lb-rank-${rank}` : '';
+        const currentClass = entry.idNumber === currentUserId ? ' is-current-user' : '';
+        const durationStr = formatLeaderboardDuration(entry.totalMinutes);
+
+        return `<div class="landing-lb-entry ${rankClass}${currentClass}">
+            <span class="landing-lb-rank">${rank}</span>
+            <div class="landing-lb-info">
+                <span class="landing-lb-name">${escapeHTML(entry.name)}</span>
+                <span class="landing-lb-meta">${escapeHTML(entry.course)} &bull; ${escapeHTML(entry.idNumber)}</span>
+            </div>
+            <div class="landing-lb-score">
+                <span class="landing-lb-sessions">${entry.sessions}</span>
+                <span class="landing-lb-duration">${durationStr}</span>
             </div>
         </div>`;
     }).join('');
@@ -4247,7 +4295,7 @@ function saveUserProfile(currentUser) {
 
     // Redirect after short delay
     setTimeout(() => {
-        window.location.href = 'landingpage.html';
+        window.location.href = 'index.html';
     }, 1500);
 }
 
@@ -5347,7 +5395,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (currentPage === 'loginpage.html' || currentPage === 'registrationpage.html') {
             showMessage('You are already logged in.', 'info');
             setTimeout(() => {
-                window.location.href = 'landingpage.html';
+                window.location.href = 'index.html';
             }, 1000);
             return;
         }
@@ -5386,7 +5434,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         initRegistrationForm();
     } else if (currentPage === 'loginpage.html') {
         initLoginForm();
-    } else if (currentPage === 'landingpage.html' || currentPage === '') {
+    } else if (currentPage === 'index.html' || currentPage === '') {
         updateLandingPageForLoggedInUser();
     } else if (currentPage === 'editprofile.html') {
         initEditProfilePage();
