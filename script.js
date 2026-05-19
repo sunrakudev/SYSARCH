@@ -625,12 +625,20 @@ function getStudentHistory(idNumber) {
 // Student Management Functions
 // ============================================
 
-function addStudent(studentData) {
+async function addStudent(studentData) {
     const users = getUsers();
     const existingIndex = users.findIndex(u => u.idNumber === studentData.idNumber);
 
     if (existingIndex !== -1) {
         return { success: false, message: 'Student with this ID already exists.' };
+    }
+
+    const client = getSupabaseClient();
+    if (client) {
+        return registerUser({
+            ...studentData,
+            remainingSessions: studentData.remainingSessions || 30
+        });
     }
 
     const newStudent = {
@@ -645,7 +653,7 @@ function addStudent(studentData) {
     return { success: true, message: 'Student added successfully!' };
 }
 
-function updateStudent(idNumber, studentData) {
+async function updateStudent(idNumber, studentData) {
     const users = getUsers();
     const userIndex = users.findIndex(u => u.idNumber === idNumber);
 
@@ -653,13 +661,44 @@ function updateStudent(idNumber, studentData) {
         return { success: false, message: 'Student not found.' };
     }
 
+    const client = getSupabaseClient();
+    if (client) {
+        const { error } = await client
+            .from('students')
+            .update({
+                id_number: studentData.idNumber,
+                first_name: studentData.firstName,
+                last_name: studentData.lastName,
+                middle_name: studentData.middleName || null,
+                email: studentData.email,
+                course: studentData.course,
+                course_level: studentData.courseLevel,
+                address: studentData.address,
+                remaining_sessions: studentData.remainingSessions ?? 30
+            })
+            .eq('id_number', idNumber);
+
+        if (error) return { success: false, message: error.message };
+    }
+
     users[userIndex] = { ...users[userIndex], ...studentData };
     saveUsers(users);
     return { success: true, message: 'Student updated successfully!' };
 }
 
-function deleteStudent(idNumber) {
+async function deleteStudent(idNumber) {
     const users = getUsers();
+
+    const client = getSupabaseClient();
+    if (client) {
+        const { error } = await client
+            .from('students')
+            .delete()
+            .eq('id_number', idNumber);
+
+        if (error) return { success: false, message: error.message };
+    }
+
     const filtered = users.filter(u => u.idNumber !== idNumber);
     saveUsers(filtered);
 
@@ -667,6 +706,7 @@ function deleteStudent(idNumber) {
     const sitins = getCurrentSitIns();
     const filteredSitins = sitins.filter(s => s.idNumber !== idNumber);
     saveCurrentSitIns(filteredSitins);
+    return { success: true, message: 'Student deleted successfully!' };
 }
 
 // ============================================
@@ -2494,7 +2534,7 @@ async function initAdminStudents() {
     // Student form submit
     const studentForm = document.getElementById('student-form');
     if (studentForm) {
-        studentForm.addEventListener('submit', function(e) {
+        studentForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             const editId = document.getElementById('edit-student-id').value;
             const email = document.getElementById('modal-email').value.trim();
@@ -2539,14 +2579,14 @@ async function initAdminStudents() {
 
             let result;
             if (editId) {
-                result = updateStudent(editId, studentData);
+                result = await updateStudent(editId, studentData);
             } else {
-                result = addStudent(studentData);
+                result = await addStudent(studentData);
             }
 
             if (result.success) {
                 studentModal.style.display = 'none';
-                loadStudentsTable();
+                await loadStudentsTable();
                 showMessage(result.message, 'success');
             } else {
                 showMessage(result.message, 'error');
@@ -2683,12 +2723,16 @@ async function loadStudentsTable(searchTerm = '') {
     });
 
     tbody.querySelectorAll('.btn-delete-student').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', async function() {
             const id = this.dataset.id;
             if (confirm(`Delete student ${id}? This cannot be undone.`)) {
-                deleteStudent(id);
-                loadStudentsTable(searchTerm);
-                showMessage('Student deleted!', 'success');
+                const result = await deleteStudent(id);
+                if (result.success) {
+                    await loadStudentsTable(searchTerm);
+                    showMessage(result.message || 'Student deleted!', 'success');
+                } else {
+                    showMessage(result.message, 'error');
+                }
             }
         });
     });
