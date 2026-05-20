@@ -18,6 +18,8 @@ const STORAGE_KEYS = {
     STUDENT_OVERRIDES: 'ccs_student_overrides'
 };
 
+const DEFAULT_SESSION_LIMIT = 30;
+
 const SUPABASE_CONFIG = {
     URL: 'https://qjrfkgtwzvqkaxduaore.supabase.co',
     KEY: 'sb_publishable_nSYIVlTF9pvqApBZ06bZwg_dzXdMSss'
@@ -53,13 +55,69 @@ function dbStudentToUser(student) {
         course: student.course || '',
         courseLevel: student.course_level || '',
         address: student.address || '',
-        remainingSessions: student.remaining_sessions ?? 30,
+        remainingSessions: student.remaining_sessions ?? DEFAULT_SESSION_LIMIT,
         registeredAt: student.registered_at || new Date().toISOString()
     };
 }
 
-function saveOrUpdateLocalUser(userData) {
+function getSessionValue(value, fallback = DEFAULT_SESSION_LIMIT) {
+    if (value === '' || value == null) return fallback;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function getCompletedSessionCount(idNumber) {
+    return getSitInRecords().filter(record =>
+        record.idNumber === idNumber && record.status === 'completed'
+    ).length;
+}
+
+function getEffectiveRemainingSessions(user) {
+    if (!user) return DEFAULT_SESSION_LIMIT;
+
+    const storedRemaining = getSessionValue(user.remainingSessions);
+    const completedBasedRemaining = Math.max(0, DEFAULT_SESSION_LIMIT - getCompletedSessionCount(user.idNumber));
+    return Math.min(storedRemaining, completedBasedRemaining);
+}
+
+function applyEffectiveRemainingSessions(users) {
+    return users.map(user => ({
+        ...user,
+        remainingSessions: getEffectiveRemainingSessions(user)
+    }));
+}
+
+function refreshCurrentUserDisplayData(idNumber, updates = {}) {
+    const currentUser = getCurrentUser();
+    if (!currentUser || currentUser.idNumber !== idNumber) return;
+
+    setCurrentUser({ ...currentUser, ...updates });
+}
+
+function setStudentRemainingSessions(idNumber, remainingSessions) {
     const users = getUsers();
+    const userIndex = users.findIndex(u => u.idNumber === idNumber);
+    if (userIndex === -1) return null;
+
+    const normalizedRemaining = Math.max(0, getSessionValue(remainingSessions, 0));
+    users[userIndex].remainingSessions = normalizedRemaining;
+    saveUsers(users);
+    saveStudentOverride(idNumber, users[userIndex]);
+    refreshCurrentUserDisplayData(idNumber);
+    updateStudentSessionsInSupabase(idNumber, normalizedRemaining);
+    return normalizedRemaining;
+}
+
+function consumeStudentSession(idNumber) {
+    const user = getDisplayUsers().find(u => u.idNumber === idNumber);
+    if (!user || getEffectiveRemainingSessions(user) <= 0) return false;
+
+    setStudentRemainingSessions(idNumber, getEffectiveRemainingSessions(user) - 1);
+    return true;
+}
+
+function saveOrUpdateLocalUser(userData) {
+    const users = getDisplayUsers();
     const existingIndex = users.findIndex(u => u.idNumber === userData.idNumber);
 
     if (existingIndex === -1) {
@@ -130,6 +188,10 @@ function saveUsers(users) {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
 }
 
+function getDisplayUsers() {
+    return applyEffectiveRemainingSessions(getUsers());
+}
+
 function getStudentOverrides() {
     const overrides = localStorage.getItem(STORAGE_KEYS.STUDENT_OVERRIDES);
     return safeParseJSON(overrides, {});
@@ -178,7 +240,7 @@ function setCurrentUser(user) {
 }
 
 async function registerUser(userData) {
-    const users = getUsers();
+    const users = getDisplayUsers();
     
     // Check if ID number already exists
     const existingUser = users.find(u => u.idNumber === userData.idNumber);
@@ -212,7 +274,7 @@ async function registerUser(userData) {
             course: userData.course,
             course_level: userData.courseLevel,
             address: userData.address,
-            remaining_sessions: userData.remainingSessions ?? 30
+            remaining_sessions: getSessionValue(userData.remainingSessions)
         });
 
         if (profileError) {
@@ -271,7 +333,7 @@ async function loginUser(idNumber, password, rememberMe = false) {
         return { success: true, message: 'Login successful! Redirecting to dashboard...', user };
     }
 
-    const users = getUsers();
+    const users = getDisplayUsers();
     const user = users.find(u => u.idNumber === idNumber && u.password === password);
     
     if (!user) {
@@ -567,6 +629,15 @@ async function updateRecordInSupabase(id, updates) {
     await client.from('sitin_records').update(updates).eq('id', id);
 }
 
+async function updateStudentSessionsInSupabase(idNumber, remainingSessions) {
+    const client = getSupabaseClient();
+    if (!client) return;
+    await client
+        .from('students')
+        .update({ remaining_sessions: remainingSessions })
+        .eq('id_number', idNumber);
+}
+
 async function clearRecordsInSupabase() {
     const client = getSupabaseClient();
     if (!client) return;
@@ -583,13 +654,22 @@ function saveCurrentSitIns(sitins) {
 }
 
 function addSitIn(sitinData) {
+    const sessionDeducted = consumeStudentSession(sitinData.idNumber);
+    if (!sessionDeducted) {
+        return { success: false, message: 'Student has no remaining sessions.' };
+    }
+
     const sitins = getCurrentSitIns();
-    sitins.push(sitinData);
+    const activeSitin = {
+        ...sitinData,
+        sessionDeducted
+    };
+    sitins.push(activeSitin);
     saveCurrentSitIns(sitins);
 
     updateLabOccupancy();
 
-    const record = { ...sitinData, status: 'active', completedAt: null };
+    const record = { ...activeSitin, status: 'active', completedAt: null };
     const records = getSitInRecords();
     records.push(record);
     saveSitInRecords(records);
@@ -621,6 +701,9 @@ function approveSitInRequest(requestId) {
     }
 
     const request = requests[requestIndex];
+    if (!consumeStudentSession(request.idNumber)) {
+        return { success: false, message: 'Student has no remaining sessions.' };
+    }
 
     // Remove from requests
     requests.splice(requestIndex, 1);
@@ -630,7 +713,8 @@ function approveSitInRequest(requestId) {
     const activeRequest = {
         ...request,
         status: 'active',
-        startTime: new Date().toISOString()
+        startTime: new Date().toISOString(),
+        sessionDeducted: true
     };
     const sitins = getCurrentSitIns();
     sitins.push(activeRequest);
@@ -688,12 +772,12 @@ function removeSitIn(id) {
             completed_at: endTime
         });
 
-        // Deduct 1 session from student's remaining sessions
-        const users = getUsers();
-        const userIndex = users.findIndex(u => u.idNumber === sitin.idNumber);
-        if (userIndex !== -1 && users[userIndex].remainingSessions > 0) {
-            users[userIndex].remainingSessions--;
-            saveUsers(users);
+        // Older active sessions may not have been deducted when they started.
+        if (!sitin.sessionDeducted) {
+            const user = getUsers().find(u => u.idNumber === sitin.idNumber);
+            if (user) {
+                setStudentRemainingSessions(sitin.idNumber, getEffectiveRemainingSessions(user));
+            }
         }
     }
 
@@ -726,7 +810,7 @@ function getStudentHistory(idNumber) {
 // ============================================
 
 async function addStudent(studentData) {
-    const users = getUsers();
+    const users = getDisplayUsers();
     const existingIndex = users.findIndex(u => u.idNumber === studentData.idNumber);
 
     if (existingIndex !== -1) {
@@ -737,14 +821,14 @@ async function addStudent(studentData) {
     if (client) {
         return registerUser({
             ...studentData,
-            remainingSessions: studentData.remainingSessions || 30
+            remainingSessions: getSessionValue(studentData.remainingSessions)
         });
     }
 
     const newStudent = {
         ...studentData,
         password: studentData.password || studentData.idNumber,
-        remainingSessions: studentData.remainingSessions || 30,
+        remainingSessions: getSessionValue(studentData.remainingSessions),
         registeredAt: new Date().toISOString()
     };
 
@@ -774,7 +858,7 @@ async function updateStudent(idNumber, studentData) {
                 course: studentData.course,
                 course_level: studentData.courseLevel,
                 address: studentData.address,
-                remaining_sessions: studentData.remainingSessions ?? 30
+                remaining_sessions: getSessionValue(studentData.remainingSessions)
             })
             .eq('id_number', idNumber);
 
@@ -1193,7 +1277,7 @@ function updateLandingPageForLoggedInUser() {
     loadUserAnnouncements();
 
     // Get full user data including sessions and photo
-    const users = getUsers();
+    const users = getDisplayUsers();
     const fullUser = users.find(u => u.idNumber === user.idNumber);
 
     // Update user info with photo
@@ -1209,7 +1293,7 @@ function updateLandingPageForLoggedInUser() {
     if (studentName) studentName.textContent = `${user.firstName} ${user.lastName}`;
     if (studentIdCourse) studentIdCourse.textContent = `${user.idNumber} | ${user.course} - ${user.courseLevel}${getYearSuffix(user.courseLevel)} Year`;
     if (studentEmail) studentEmail.textContent = fullUser?.email || 'No email provided';
-    const remainingSessions = fullUser?.remainingSessions ?? 30;
+    const remainingSessions = getEffectiveRemainingSessions(fullUser);
     if (studentSessions) {
         studentSessions.textContent = remainingSessions;
     }
@@ -1217,7 +1301,7 @@ function updateLandingPageForLoggedInUser() {
     // Update sessions progress bar
     const sessionsBar = document.getElementById('sessions-bar');
     if (sessionsBar) {
-        const pct = Math.max(0, Math.min(100, (remainingSessions / 30) * 100));
+        const pct = Math.max(0, Math.min(100, (remainingSessions / DEFAULT_SESSION_LIMIT) * 100));
         sessionsBar.style.width = pct + '%';
     }
 
@@ -2542,7 +2626,7 @@ async function syncStudentsFromSupabase() {
     const { data: students, error } = await client.from('students').select('*');
     if (error || !students || students.length === 0) return;
 
-    const mapped = applyStudentOverrides(students.map(dbStudentToUser));
+    const mapped = applyEffectiveRemainingSessions(applyStudentOverrides(students.map(dbStudentToUser)));
     saveUsers(mapped);
     return mapped;
 }
@@ -2550,7 +2634,7 @@ async function syncStudentsFromSupabase() {
 function getDashboardStudents() {
     const usersById = {};
 
-    getUsers().forEach(user => {
+    getDisplayUsers().forEach(user => {
         if (!user?.idNumber) return;
         usersById[user.idNumber] = user;
     });
@@ -2703,7 +2787,7 @@ async function initAdminStudents() {
                 course: document.getElementById('modal-course').value,
                 courseLevel: document.getElementById('modal-level').value,
                 address: document.getElementById('modal-address').value.trim(),
-                remainingSessions: parseInt(document.getElementById('modal-sessions').value) || 30
+            remainingSessions: getSessionValue(document.getElementById('modal-sessions').value)
             };
 
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -2831,7 +2915,7 @@ async function loadStudentsTable(searchTerm = '') {
     if (!tbody) return;
 
     const synced = await syncStudentsFromSupabase();
-    let users = synced || getUsers();
+    let users = synced || getDisplayUsers();
 
     // Filter by search term
     if (searchTerm) {
@@ -2859,7 +2943,7 @@ async function loadStudentsTable(searchTerm = '') {
             <td>${u.lastName}, ${u.firstName} ${u.middleName || ''}</td>
             <td>${u.courseLevel}</td>
             <td>${u.course}</td>
-            <td>${u.remainingSessions || 30}</td>
+            <td>${getEffectiveRemainingSessions(u)}</td>
             <td class="actions-cell">
                 <button class="btn-edit-student" data-id="${u.idNumber}">Edit</button>
                 <button class="btn-delete-student" data-id="${u.idNumber}">Delete</button>
@@ -2933,7 +3017,7 @@ function openStudentModal(student = null) {
         document.getElementById('modal-confirm-password').placeholder = 'Leave blank to keep current password';
         document.getElementById('modal-course').value = student.course;
         document.getElementById('modal-level').value = student.courseLevel;
-        document.getElementById('modal-sessions').value = student.remainingSessions || 30;
+        document.getElementById('modal-sessions').value = getEffectiveRemainingSessions(student);
         document.getElementById('modal-id-number').disabled = true;
     } else {
         title.textContent = 'Add Student';
@@ -3059,9 +3143,13 @@ async function initAdminSitIn() {
                 return;
             }
 
-            const user = getUsers().find(u => u.idNumber === idNumber);
+            const user = getDisplayUsers().find(u => u.idNumber === idNumber);
             if (!user) {
                 showMessage('Student not found.', 'error');
+                return;
+            }
+            if (getEffectiveRemainingSessions(user) <= 0) {
+                showMessage('Student has no remaining sessions.', 'error');
                 return;
             }
 
@@ -3078,7 +3166,11 @@ async function initAdminSitIn() {
                 startTime: new Date().toISOString()
             };
 
-            addSitIn(sitInData);
+            const result = addSitIn(sitInData);
+            if (!result.success) {
+                showMessage(result.message || 'Unable to start sit-in.', 'error');
+                return;
+            }
 
             // Clear form
             if (purposeInput) purposeInput.value = '';
@@ -3108,7 +3200,7 @@ async function initAdminSitIn() {
 }
 
 function searchStudentForSitIn(idNumber) {
-    const users = getUsers();
+    const users = getDisplayUsers();
     const user = users.find(u => u.idNumber === idNumber);
 
     const resultSection = document.getElementById('admin-sitin-result-section');
@@ -3127,7 +3219,7 @@ function searchStudentForSitIn(idNumber) {
     document.getElementById('result-id-number').textContent = user.idNumber;
     document.getElementById('result-name').textContent = `${user.firstName} ${user.lastName}`;
     document.getElementById('result-course').textContent = `${user.course} - ${user.courseLevel}${getYearSuffix(user.courseLevel)} Year`;
-    document.getElementById('result-sessions').textContent = `${user.remainingSessions || 30} / 30`;
+    document.getElementById('result-sessions').textContent = `${getEffectiveRemainingSessions(user)} / ${DEFAULT_SESSION_LIMIT}`;
 
     // Check if student already has active session
     const currentSitIns = getCurrentSitIns();
@@ -3143,7 +3235,7 @@ function searchStudentForSitIn(idNumber) {
     }
 
     // Check remaining sessions
-    if (user.remainingSessions <= 0) {
+    if (getEffectiveRemainingSessions(user) <= 0) {
         showMessage('Student has no remaining sessions.', 'error');
         if (noPendingMsg) {
             noPendingMsg.style.display = 'block';
@@ -3203,7 +3295,7 @@ function populateAdminLabSelect() {
 // ============================================
 
 function searchStudentForSitInStudentsPage(idNumber) {
-    const users = getUsers();
+    const users = getDisplayUsers();
     // Find exact match or partial match
     const user = users.find(u => u.idNumber === idNumber) ||
                  users.find(u => u.idNumber.toLowerCase().includes(idNumber.toLowerCase()));
@@ -3224,7 +3316,7 @@ function searchStudentForSitInStudentsPage(idNumber) {
     document.getElementById('sitin-result-id-number').textContent = user.idNumber;
     document.getElementById('sitin-result-name').textContent = `${user.firstName} ${user.lastName}`;
     document.getElementById('sitin-result-course').textContent = `${user.course} - ${user.courseLevel}${getYearSuffix(user.courseLevel)} Year`;
-    document.getElementById('sitin-result-sessions').textContent = `${user.remainingSessions || 30} / 30`;
+    document.getElementById('sitin-result-sessions').textContent = `${getEffectiveRemainingSessions(user)} / ${DEFAULT_SESSION_LIMIT}`;
 
     // Check for pending reservations
     const reservations = getReservations();
@@ -4124,13 +4216,13 @@ function initSitInPage() {
     if (idInput) {
         idInput.addEventListener('blur', function() {
             const id = this.value.trim();
-            const users = getUsers();
+            const users = getDisplayUsers();
             const foundUser = users.find(u => u.idNumber === id);
 
             if (foundUser) {
                 document.getElementById('display-name').textContent = `${foundUser.firstName} ${foundUser.lastName}`;
                 document.getElementById('display-course').textContent = foundUser.course;
-                document.getElementById('display-sessions').textContent = foundUser.remainingSessions || 30;
+                document.getElementById('display-sessions').textContent = getEffectiveRemainingSessions(foundUser);
                 document.getElementById('student-info-display').style.display = 'block';
             } else {
                 document.getElementById('display-name').textContent = '';
@@ -4155,7 +4247,7 @@ function initSitInPage() {
                 return;
             }
 
-            const users = getUsers();
+            const users = getDisplayUsers();
             const foundUser = users.find(u => u.idNumber === idNumber);
 
             if (!foundUser) {
@@ -4163,7 +4255,7 @@ function initSitInPage() {
                 return;
             }
 
-            if ((foundUser.remainingSessions || 30) <= 0) {
+            if (getEffectiveRemainingSessions(foundUser) <= 0) {
                 showMessage('No remaining sessions available. Please contact admin.', 'error');
                 return;
             }
@@ -4378,7 +4470,7 @@ function initEditProfilePage() {
 }
 
 function loadUserProfile(user) {
-    const users = getUsers();
+    const users = getDisplayUsers();
     const currentUser = users.find(u => u.idNumber === user.idNumber);
 
     if (!currentUser) {
@@ -4573,8 +4665,8 @@ function approveReservation(id, adminName, options = {}) {
         return { success: false, message: 'Please assign a lab before approving.' };
     }
 
-    const user = getUsers().find(u => u.idNumber === reservation.studentId);
-    if (user && (user.remainingSessions || 0) <= 0) {
+    const user = getDisplayUsers().find(u => u.idNumber === reservation.studentId);
+    if (user && getEffectiveRemainingSessions(user) <= 0) {
         return { success: false, message: 'Student has no remaining sessions.' };
     }
 
@@ -5639,9 +5731,92 @@ function loadPublicLeaderboard() {
     if (listElOut) listElOut.innerHTML = html;
 }
 
+let pageDataRefreshInProgress = false;
+let supabaseRealtimeChannel = null;
+
+async function refreshCurrentPageData() {
+    if (pageDataRefreshInProgress) return;
+    pageDataRefreshInProgress = true;
+
+    try {
+        const currentPage = window.location.pathname.split('/').pop();
+
+        if (currentPage === 'admindashboard.html') {
+            await syncRecordsFromSupabase();
+            await syncStudentsFromSupabase();
+            loadDashboardStats();
+            loadAdminSessionsTable();
+            loadDashboardAnalytics();
+            loadDashboardLeaderboard();
+        } else if (currentPage === 'adminstudents.html') {
+            await syncRecordsFromSupabase();
+            await loadStudentsTable(document.getElementById('student-search')?.value || '');
+            const searchTerm = document.getElementById('student-search')?.value.trim() || '';
+            if (searchTerm.length >= 3) searchStudentForSitInStudentsPage(searchTerm);
+        } else if (currentPage === 'adminsitin.html') {
+            await syncRecordsFromSupabase();
+            loadSitInTable();
+            const idNumber = document.getElementById('admin-sitin-search')?.value.trim();
+            if (idNumber) searchStudentForSitIn(idNumber);
+        } else if (currentPage === 'adminrecords.html') {
+            await syncRecordsFromSupabase();
+            loadRecordsTable(document.getElementById('records-search')?.value || '');
+        } else if (currentPage === 'adminreservation.html') {
+            loadReservationsTable();
+            loadReservationStats();
+        } else if (currentPage === 'adminlabs.html') {
+            updateLabStats();
+            loadLabManagementGrid();
+        } else if (currentPage === 'index.html' || currentPage === '') {
+            await syncRecordsFromSupabase();
+            await syncStudentsFromSupabase();
+            loadPublicLeaderboard();
+            const user = getCurrentUser();
+            if (user) updateLandingPageForLoggedInUser();
+        }
+    } finally {
+        pageDataRefreshInProgress = false;
+    }
+}
+
+function initRealtimeDataRefresh() {
+    const watchedKeys = new Set([
+        STORAGE_KEYS.USERS,
+        STORAGE_KEYS.STUDENT_OVERRIDES,
+        STORAGE_KEYS.SITIN_RECORDS,
+        STORAGE_KEYS.SITIN_CURRENT,
+        STORAGE_KEYS.LAB_ROOMS,
+        'ccs_reservations',
+        'ccs_sitin_requests',
+        'ccs_feedback'
+    ]);
+
+    window.addEventListener('storage', event => {
+        if (watchedKeys.has(event.key)) refreshCurrentPageData();
+    });
+
+    window.addEventListener('focus', refreshCurrentPageData);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) refreshCurrentPageData();
+    });
+}
+
+function initSupabaseRealtimeRefresh() {
+    const client = getSupabaseClient();
+    if (!client || typeof client.channel !== 'function' || supabaseRealtimeChannel) return;
+
+    supabaseRealtimeChannel = client
+        .channel('ccs-data-refresh')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, refreshCurrentPageData)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'sitin_records' }, refreshCurrentPageData)
+        .subscribe();
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
     // Initialize default admin
     initDefaultAdmin();
+    initRealtimeDataRefresh();
+    initSupabaseRealtimeRefresh();
 
     // Initialize theme first
     initTheme();
