@@ -625,12 +625,20 @@ function getStudentHistory(idNumber) {
 // Student Management Functions
 // ============================================
 
-function addStudent(studentData) {
+async function addStudent(studentData) {
     const users = getUsers();
     const existingIndex = users.findIndex(u => u.idNumber === studentData.idNumber);
 
     if (existingIndex !== -1) {
         return { success: false, message: 'Student with this ID already exists.' };
+    }
+
+    const client = getSupabaseClient();
+    if (client) {
+        return registerUser({
+            ...studentData,
+            remainingSessions: studentData.remainingSessions || 30
+        });
     }
 
     const newStudent = {
@@ -645,7 +653,7 @@ function addStudent(studentData) {
     return { success: true, message: 'Student added successfully!' };
 }
 
-function updateStudent(idNumber, studentData) {
+async function updateStudent(idNumber, studentData) {
     const users = getUsers();
     const userIndex = users.findIndex(u => u.idNumber === idNumber);
 
@@ -653,13 +661,44 @@ function updateStudent(idNumber, studentData) {
         return { success: false, message: 'Student not found.' };
     }
 
+    const client = getSupabaseClient();
+    if (client) {
+        const { error } = await client
+            .from('students')
+            .update({
+                id_number: studentData.idNumber,
+                first_name: studentData.firstName,
+                last_name: studentData.lastName,
+                middle_name: studentData.middleName || null,
+                email: studentData.email,
+                course: studentData.course,
+                course_level: studentData.courseLevel,
+                address: studentData.address,
+                remaining_sessions: studentData.remainingSessions ?? 30
+            })
+            .eq('id_number', idNumber);
+
+        if (error) return { success: false, message: error.message };
+    }
+
     users[userIndex] = { ...users[userIndex], ...studentData };
     saveUsers(users);
     return { success: true, message: 'Student updated successfully!' };
 }
 
-function deleteStudent(idNumber) {
+async function deleteStudent(idNumber) {
     const users = getUsers();
+
+    const client = getSupabaseClient();
+    if (client) {
+        const { error } = await client
+            .from('students')
+            .delete()
+            .eq('id_number', idNumber);
+
+        if (error) return { success: false, message: error.message };
+    }
+
     const filtered = users.filter(u => u.idNumber !== idNumber);
     saveUsers(filtered);
 
@@ -667,6 +706,7 @@ function deleteStudent(idNumber) {
     const sitins = getCurrentSitIns();
     const filteredSitins = sitins.filter(s => s.idNumber !== idNumber);
     saveCurrentSitIns(filteredSitins);
+    return { success: true, message: 'Student deleted successfully!' };
 }
 
 // ============================================
@@ -891,7 +931,7 @@ function initLoginForm() {
             }
 
             showMessage(result.message, 'success');
-            redirect('landingpage.html');
+            redirect('index.html');
         } else {
             showMessage(result.message, 'error');
         }
@@ -1014,7 +1054,7 @@ function updateNavForLoggedInUser() {
                     logoutUser();
                     showMessage('You have been logged out successfully.', 'info');
                     setTimeout(() => {
-                        window.location.href = 'landingpage.html';
+                        window.location.href = 'index.html';
                     }, 1500);
                 });
             }
@@ -1087,6 +1127,7 @@ function updateLandingPageForLoggedInUser() {
     loadSitinHistory(user.idNumber);
     loadUserLabAvailability();
     updateStudentReservationStatus();
+    loadLandingLeaderboard(user.idNumber);
 
     // Handle profile photo
     if (fullUser?.profilePhoto) {
@@ -1112,7 +1153,7 @@ function updateLandingPageForLoggedInUser() {
             logoutUser();
             showMessage('You have been logged out successfully.', 'info');
             setTimeout(() => {
-                window.location.href = 'landingpage.html';
+                window.location.href = 'index.html';
             }, 1500);
         });
     }
@@ -2255,35 +2296,10 @@ function loadDashboardLeaderboard() {
     const listEl = document.getElementById('leaderboard-list');
     if (!listEl) return;
 
-    const records = getSitInRecords();
-    const users = getUsers();
-
     const searchTerm = (document.getElementById('leaderboard-search')?.value || '').toLowerCase();
     const sortBy = document.getElementById('leaderboard-sort')?.value || 'sessions';
 
-    const sessionCounts = {};
-    const sessionDurations = {};
-    records.forEach(r => {
-        if (!r.idNumber) return;
-        sessionCounts[r.idNumber] = (sessionCounts[r.idNumber] || 0) + 1;
-        if (r.startTime && r.endTime) {
-            const dur = new Date(r.endTime) - new Date(r.startTime);
-            if (!isNaN(dur) && dur > 0) {
-                sessionDurations[r.idNumber] = (sessionDurations[r.idNumber] || 0) + dur;
-            }
-        }
-    });
-
-    let leaderboard = Object.keys(sessionCounts).map(id => {
-        const user = users.find(u => u.idNumber === id);
-        return {
-            idNumber: id,
-            name: user ? `${user.firstName} ${user.lastName}` : id,
-            course: user?.course || 'N/A',
-            sessions: sessionCounts[id],
-            totalMinutes: Math.floor((sessionDurations[id] || 0) / 60000)
-        };
-    });
+    let leaderboard = buildLeaderboardEntries();
 
     if (searchTerm) {
         leaderboard = leaderboard.filter(e =>
@@ -2292,7 +2308,9 @@ function loadDashboardLeaderboard() {
         );
     }
 
-    leaderboard.sort((a, b) => sortBy === 'hours' ? b.totalMinutes - a.totalMinutes : b.sessions - a.sessions);
+    leaderboard.sort((a, b) => sortBy === 'hours'
+        ? b.totalMinutes - a.totalMinutes
+        : b.sessions - a.sessions || b.totalMinutes - a.totalMinutes);
     leaderboard = leaderboard.slice(0, 10);
 
     if (leaderboard.length === 0) {
@@ -2314,6 +2332,76 @@ function loadDashboardLeaderboard() {
             <div class="lb-stats">
                 <span class="lb-sessions">${entry.sessions} session${entry.sessions !== 1 ? 's' : ''}</span>
                 <span class="lb-duration">${durationStr}</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function buildLeaderboardEntries() {
+    const records = getSitInRecords();
+    const users = getUsers();
+    const sessionCounts = {};
+    const sessionDurations = {};
+
+    records.forEach(r => {
+        if (!r.idNumber) return;
+        sessionCounts[r.idNumber] = (sessionCounts[r.idNumber] || 0) + 1;
+        if (r.startTime && r.endTime) {
+            const dur = new Date(r.endTime) - new Date(r.startTime);
+            if (!isNaN(dur) && dur > 0) {
+                sessionDurations[r.idNumber] = (sessionDurations[r.idNumber] || 0) + dur;
+            }
+        }
+    });
+
+    return Object.keys(sessionCounts).map(id => {
+        const user = users.find(u => u.idNumber === id);
+        return {
+            idNumber: id,
+            name: user ? `${user.firstName} ${user.lastName}` : id,
+            course: user?.course || 'N/A',
+            sessions: sessionCounts[id],
+            totalMinutes: Math.floor((sessionDurations[id] || 0) / 60000)
+        };
+    }).sort((a, b) => {
+        if (b.sessions !== a.sessions) return b.sessions - a.sessions;
+        return b.totalMinutes - a.totalMinutes;
+    });
+}
+
+function formatLeaderboardDuration(totalMinutes) {
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    if (totalMinutes <= 0) return 'No time yet';
+    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+}
+
+function loadLandingLeaderboard(currentUserId) {
+    const listEl = document.getElementById('landing-leaderboard-list');
+    if (!listEl) return;
+
+    const leaderboard = buildLeaderboardEntries();
+
+    if (leaderboard.length === 0) {
+        listEl.innerHTML = '<p class="no-data-msg">No sit-in sessions recorded yet.</p>';
+        return;
+    }
+
+    listEl.innerHTML = leaderboard.slice(0, 8).map((entry, index) => {
+        const rank = index + 1;
+        const rankClass = rank <= 3 ? `landing-lb-rank-${rank}` : '';
+        const currentClass = entry.idNumber === currentUserId ? ' is-current-user' : '';
+        const durationStr = formatLeaderboardDuration(entry.totalMinutes);
+
+        return `<div class="landing-lb-entry ${rankClass}${currentClass}">
+            <span class="landing-lb-rank">${rank}</span>
+            <div class="landing-lb-info">
+                <span class="landing-lb-name">${escapeHTML(entry.name)}</span>
+                <span class="landing-lb-meta">${escapeHTML(entry.course)} &bull; ${escapeHTML(entry.idNumber)}</span>
+            </div>
+            <div class="landing-lb-score">
+                <span class="landing-lb-sessions">${entry.sessions}</span>
+                <span class="landing-lb-duration">${durationStr}</span>
             </div>
         </div>`;
     }).join('');
@@ -2446,7 +2534,7 @@ async function initAdminStudents() {
     // Student form submit
     const studentForm = document.getElementById('student-form');
     if (studentForm) {
-        studentForm.addEventListener('submit', function(e) {
+        studentForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             const editId = document.getElementById('edit-student-id').value;
             const email = document.getElementById('modal-email').value.trim();
@@ -2491,14 +2579,14 @@ async function initAdminStudents() {
 
             let result;
             if (editId) {
-                result = updateStudent(editId, studentData);
+                result = await updateStudent(editId, studentData);
             } else {
-                result = addStudent(studentData);
+                result = await addStudent(studentData);
             }
 
             if (result.success) {
                 studentModal.style.display = 'none';
-                loadStudentsTable();
+                await loadStudentsTable();
                 showMessage(result.message, 'success');
             } else {
                 showMessage(result.message, 'error');
@@ -2635,12 +2723,16 @@ async function loadStudentsTable(searchTerm = '') {
     });
 
     tbody.querySelectorAll('.btn-delete-student').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', async function() {
             const id = this.dataset.id;
             if (confirm(`Delete student ${id}? This cannot be undone.`)) {
-                deleteStudent(id);
-                loadStudentsTable(searchTerm);
-                showMessage('Student deleted!', 'success');
+                const result = await deleteStudent(id);
+                if (result.success) {
+                    await loadStudentsTable(searchTerm);
+                    showMessage(result.message || 'Student deleted!', 'success');
+                } else {
+                    showMessage(result.message, 'error');
+                }
             }
         });
     });
@@ -4247,7 +4339,7 @@ function saveUserProfile(currentUser) {
 
     // Redirect after short delay
     setTimeout(() => {
-        window.location.href = 'landingpage.html';
+        window.location.href = 'index.html';
     }, 1500);
 }
 
@@ -5413,7 +5505,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (currentPage === 'loginpage.html' || currentPage === 'registrationpage.html') {
             showMessage('You are already logged in.', 'info');
             setTimeout(() => {
-                window.location.href = 'landingpage.html';
+                window.location.href = 'index.html';
             }, 1000);
             return;
         }
@@ -5452,7 +5544,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         initRegistrationForm();
     } else if (currentPage === 'loginpage.html') {
         initLoginForm();
-    } else if (currentPage === 'landingpage.html' || currentPage === '') {
+    } else if (currentPage === 'index.html' || currentPage === '') {
         updateLandingPageForLoggedInUser();
         loadPublicLeaderboard();
     } else if (currentPage === 'editprofile.html') {

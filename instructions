@@ -2,7 +2,7 @@ Inspect this static HTML/CSS/JS project first before editing. Follow the existin
 
 Main files to check:
 - admindashboard.html
-- landingpage.html
+- index.html
 - adminreservation.html
 - adminlabs.html
 - adminrecords.html
@@ -25,7 +25,7 @@ Admin dashboard requirements:
 - Add a leaderboard based on useful existing data, such as most sit-in sessions or total sit-in duration.
 
 Student dashboard requirements:
-- Update the logged-in student dashboard in landingpage.html.
+- Update the logged-in student dashboard in index.html.
 - Add or improve sections for:
   - Reservation
   - Software Availability / Lab Availability
