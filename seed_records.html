@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Seed Records</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #111; color: #0f0; }
+        #log { white-space: pre-wrap; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin-bottom: 20px; margin-right: 10px; }
+        .error { color: #f55; }
+        .success { color: #0f0; }
+    </style>
+</head>
+<body>
+    <h2>Sit-in Records Seeder</h2>
+    <button onclick="seedRecords()">Seed Sit-in Records</button>
+    <button onclick="clearRecords()" style="background:#c0392b;color:#fff;">Clear Records</button>
+    <div id="log"></div>
+
+    <script>
+        const STORAGE_KEY = 'ccs_sitin_records';
+
+        const students = [
+            { idNumber: '23748291', name: 'Rhea Montecillo',     course: 'BSIT' },
+            { idNumber: '23615047', name: 'Kian Buenaventura',   course: 'BSCS' },
+            { idNumber: '23492813', name: 'Tricia Abordo',       course: 'BSIT' },
+            { idNumber: '23837562', name: 'Gio Padilla',         course: 'BSCS' },
+            { idNumber: '23501948', name: 'Bea Florendo',        course: 'BSIT' },
+            { idNumber: '23724036', name: 'Lance Quijano',       course: 'BSCS' },
+            { idNumber: '23683175', name: 'Kyla Tagalog',        course: 'BSIT' },
+            { idNumber: '23956420', name: 'Ren Cañete',          course: 'BSCS' },
+            { idNumber: '23371894', name: 'Gab Ilustrisimo',     course: 'BSIT' },
+            { idNumber: '23209631', name: 'Nicka Pahayahay',     course: 'BSCS' },
+        ];
+
+        const labs = ['Lab 524', 'Lab 523', 'Lab 530', 'Lab 522', 'Lab 521'];
+        const purposes = ['Lab Activity', 'Project Work', 'Research', 'Programming Exercise', 'Finals Review'];
+
+        // Hours per student — varies so leaderboard is interesting
+        const sessionPlans = [
+            { sessions: 14, hoursEach: [2.5, 3, 1.5, 2, 3.5, 2, 1, 3, 2.5, 2, 1.5, 3, 2, 1] },
+            { sessions: 12, hoursEach: [3, 2, 2.5, 3.5, 1.5, 2, 3, 1, 2.5, 2, 3, 1.5] },
+            { sessions: 10, hoursEach: [2, 3, 1.5, 2.5, 3, 2, 1, 3.5, 2, 1.5] },
+            { sessions: 11, hoursEach: [2.5, 2, 3, 1.5, 2, 3.5, 1, 2.5, 3, 2, 1.5] },
+            { sessions: 9,  hoursEach: [3, 2, 2.5, 1.5, 3.5, 2, 3, 1.5, 2] },
+            { sessions: 13, hoursEach: [2, 3, 2.5, 1.5, 3, 2, 1, 2.5, 3, 1.5, 2, 3.5, 2] },
+            { sessions: 8,  hoursEach: [3, 2.5, 2, 3.5, 1.5, 2, 3, 2] },
+            { sessions: 10, hoursEach: [2.5, 3, 2, 1.5, 3.5, 2, 2.5, 1, 3, 2] },
+            { sessions: 7,  hoursEach: [3, 2, 3.5, 1.5, 2.5, 3, 2] },
+            { sessions: 11, hoursEach: [2, 3, 1.5, 2.5, 3, 2, 1.5, 3.5, 2, 1, 3] },
+        ];
+
+        function log(msg, isError = false) {
+            const div = document.getElementById('log');
+            const span = document.createElement('span');
+            span.className = isError ? 'error' : 'success';
+            span.textContent = msg + '\n';
+            div.appendChild(span);
+        }
+
+        function makeRecord(student, sitNum, startDate, durationHours, lab, purpose) {
+            const start = new Date(startDate);
+            const end = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
+            return {
+                id: start.getTime() + Math.floor(Math.random() * 1000),
+                sitIdNumber: `SIT-${String(sitNum).padStart(4, '0')}`,
+                idNumber: student.idNumber,
+                name: student.name,
+                course: student.course,
+                lab,
+                labName: lab,
+                purpose,
+                startTime: start.toISOString(),
+                endTime: end.toISOString(),
+                status: 'completed',
+                session: 30
+            };
+        }
+
+        function seedRecords() {
+            document.getElementById('log').innerHTML = '';
+            const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            const newRecords = [];
+            let sitCounter = existing.length + 1;
+
+            // Spread records over the past 30 days
+            const now = new Date();
+            let globalDay = 0;
+
+            students.forEach((student, i) => {
+                const plan = sessionPlans[i];
+                let totalMins = 0;
+
+                plan.hoursEach.forEach((hrs, j) => {
+                    const daysAgo = globalDay % 28 + 1;
+                    const dateStr = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
+                    dateStr.setHours(8 + (j % 4) * 2, 0, 0, 0);
+
+                    const lab = labs[(i + j) % labs.length];
+                    const purpose = purposes[(i + j) % purposes.length];
+                    const rec = makeRecord(student, sitCounter++, dateStr, hrs, lab, purpose);
+                    newRecords.push(rec);
+                    totalMins += hrs * 60;
+                    globalDay++;
+                });
+
+                const h = Math.floor(totalMins / 60);
+                const m = Math.round(totalMins % 60);
+                log(`[OK] ${student.name} — ${plan.sessions} sessions, ${h}h ${m}m total`);
+            });
+
+            const merged = [...existing, ...newRecords];
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+            log(`\nDone! ${newRecords.length} records added. Total: ${merged.length}`);
+        }
+
+        function clearRecords() {
+            if (confirm('Clear ALL sit-in records?')) {
+                localStorage.removeItem(STORAGE_KEY);
+                log('Records cleared.');
+            }
+        }
+    </script>
+</body>
+</html>

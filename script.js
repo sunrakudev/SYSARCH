@@ -5324,6 +5324,72 @@ function setupAdminSearchModal() {
 // Initialize on Page Load
 // ============================================
 
+function loadPublicLeaderboard() {
+    const listEl = document.getElementById('public-lb-list');
+    const listElOut = document.getElementById('public-lb-list-loggedout');
+    if (!listEl && !listElOut) return;
+
+    const records = getSitInRecords();
+    const users = getUsers();
+
+    const user = getCurrentUser();
+    if (user) {
+        const loggedOutSection = document.getElementById('public-leaderboard-section');
+        if (loggedOutSection) loggedOutSection.style.display = 'none';
+    }
+
+    if (records.length === 0) {
+        if (listEl) listEl.innerHTML = '<p class="no-history-msg">No session data yet.</p>';
+        if (listElOut) listElOut.innerHTML = '<p class="no-history-msg">No session data yet.</p>';
+        return;
+    }
+
+    const totals = {};
+    records.forEach(r => {
+        if (!r.idNumber) return;
+        if (!totals[r.idNumber]) totals[r.idNumber] = { sessions: 0, minutes: 0 };
+        totals[r.idNumber].sessions++;
+        if (r.startTime && r.endTime) {
+            const dur = new Date(r.endTime) - new Date(r.startTime);
+            if (!isNaN(dur) && dur > 0) totals[r.idNumber].minutes += dur / 60000;
+        }
+    });
+
+    const leaderboard = Object.keys(totals).map(id => {
+        const user = users.find(u => u.idNumber === id);
+        return {
+            idNumber: id,
+            name: user ? `${user.firstName} ${user.lastName}` : id,
+            course: user?.course || '',
+            sessions: totals[id].sessions,
+            minutes: Math.floor(totals[id].minutes)
+        };
+    }).sort((a, b) => b.minutes - a.minutes).slice(0, 10);
+
+    const medals = ['🥇', '🥈', '🥉'];
+    const html = leaderboard.map((entry, i) => {
+        const h = Math.floor(entry.minutes / 60);
+        const m = entry.minutes % 60;
+        const timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
+        const rankClass = i < 3 ? `pub-lb-rank-${i + 1}` : '';
+        const medal = medals[i] || `#${i + 1}`;
+        return `<div class="pub-lb-entry ${rankClass}">
+            <span class="pub-lb-medal">${medal}</span>
+            <div class="pub-lb-info">
+                <span class="pub-lb-name">${escapeHTML(entry.name)}</span>
+                <span class="pub-lb-course">${escapeHTML(entry.course)}</span>
+            </div>
+            <div class="pub-lb-stats">
+                <span class="pub-lb-hours">${timeStr}</span>
+                <span class="pub-lb-sessions">${entry.sessions} sessions</span>
+            </div>
+        </div>`;
+    }).join('');
+
+    if (listEl) listEl.innerHTML = html;
+    if (listElOut) listElOut.innerHTML = html;
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
     // Initialize default admin
     initDefaultAdmin();
@@ -5388,6 +5454,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         initLoginForm();
     } else if (currentPage === 'landingpage.html' || currentPage === '') {
         updateLandingPageForLoggedInUser();
+        loadPublicLeaderboard();
     } else if (currentPage === 'editprofile.html') {
         initEditProfilePage();
     } else if (currentPage === 'feedbackpage.html') {
