@@ -2407,10 +2407,14 @@ function buildLeaderboardEntries() {
     const users = getUsers();
     const sessionCounts = {};
     const sessionDurations = {};
+    const sessionNames = {};
+    const sessionCourses = {};
 
     records.forEach(r => {
         if (!r.idNumber) return;
         sessionCounts[r.idNumber] = (sessionCounts[r.idNumber] || 0) + 1;
+        if (r.name) sessionNames[r.idNumber] = r.name;
+        if (r.course) sessionCourses[r.idNumber] = r.course;
         if (r.startTime && r.endTime) {
             const dur = new Date(r.endTime) - new Date(r.startTime);
             if (!isNaN(dur) && dur > 0) {
@@ -2423,8 +2427,8 @@ function buildLeaderboardEntries() {
         const user = users.find(u => u.idNumber === id);
         return {
             idNumber: id,
-            name: user ? `${user.firstName} ${user.lastName}` : id,
-            course: user?.course || 'N/A',
+            name: user ? `${user.firstName} ${user.lastName}` : (sessionNames[id] || id),
+            course: user?.course || sessionCourses[id] || 'N/A',
             sessions: sessionCounts[id],
             totalMinutes: Math.floor((sessionDurations[id] || 0) / 60000)
         };
@@ -5505,8 +5509,10 @@ function loadPublicLeaderboard() {
     const totals = {};
     records.forEach(r => {
         if (!r.idNumber) return;
-        if (!totals[r.idNumber]) totals[r.idNumber] = { sessions: 0, minutes: 0 };
+        if (!totals[r.idNumber]) totals[r.idNumber] = { sessions: 0, minutes: 0, name: r.name || r.idNumber, course: r.course || '' };
         totals[r.idNumber].sessions++;
+        if (r.name) totals[r.idNumber].name = r.name;
+        if (r.course) totals[r.idNumber].course = r.course;
         if (r.startTime && r.endTime) {
             const dur = new Date(r.endTime) - new Date(r.startTime);
             if (!isNaN(dur) && dur > 0) totals[r.idNumber].minutes += dur / 60000;
@@ -5517,8 +5523,8 @@ function loadPublicLeaderboard() {
         const user = users.find(u => u.idNumber === id);
         return {
             idNumber: id,
-            name: user ? `${user.firstName} ${user.lastName}` : id,
-            course: user?.course || '',
+            name: user ? `${user.firstName} ${user.lastName}` : totals[id].name,
+            course: user?.course || totals[id].course,
             sessions: totals[id].sessions,
             minutes: Math.floor(totals[id].minutes)
         };
@@ -5535,7 +5541,7 @@ function loadPublicLeaderboard() {
             <span class="pub-lb-medal">${medal}</span>
             <div class="pub-lb-info">
                 <span class="pub-lb-name">${escapeHTML(entry.name)}</span>
-                <span class="pub-lb-course">${escapeHTML(entry.course)}</span>
+                <span class="pub-lb-course">${escapeHTML(entry.course)} &bull; <span class="pub-lb-id">${escapeHTML(entry.idNumber)}</span></span>
             </div>
             <div class="pub-lb-stats">
                 <span class="pub-lb-hours">${timeStr}</span>

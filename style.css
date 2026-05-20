@@ -3674,6 +3674,12 @@ nav {
     color: var(--text-muted, #718096);
 }
 
+.pub-lb-id {
+    font-size: 0.72rem;
+    opacity: 0.6;
+    font-family: monospace;
+}
+
 .lab-edit-btn {
     background: var(--primary-blue);
     color: white;
