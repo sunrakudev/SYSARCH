@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Seed Records</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: monospace; padding: 20px; background: #111; color: #0f0; }
         #log { white-space: pre-wrap; }
@@ -18,25 +19,27 @@
     <div id="log"></div>
 
     <script>
+        const SUPABASE_URL = 'https://qjrfkgtwzvqkaxduaore.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_nSYIVlTF9pvqApBZ06bZwg_dzXdMSss';
+        const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         const STORAGE_KEY = 'ccs_sitin_records';
 
         const students = [
-            { idNumber: '23748291', name: 'Rhea Montecillo',     course: 'BSIT' },
-            { idNumber: '23615047', name: 'Kian Buenaventura',   course: 'BSCS' },
-            { idNumber: '23492813', name: 'Tricia Abordo',       course: 'BSIT' },
-            { idNumber: '23837562', name: 'Gio Padilla',         course: 'BSCS' },
-            { idNumber: '23501948', name: 'Bea Florendo',        course: 'BSIT' },
-            { idNumber: '23724036', name: 'Lance Quijano',       course: 'BSCS' },
-            { idNumber: '23683175', name: 'Kyla Tagalog',        course: 'BSIT' },
-            { idNumber: '23956420', name: 'Ren Cañete',          course: 'BSCS' },
-            { idNumber: '23371894', name: 'Gab Ilustrisimo',     course: 'BSIT' },
-            { idNumber: '23209631', name: 'Nicka Pahayahay',     course: 'BSCS' },
+            { idNumber: '23748291', name: 'Rhea Montecillo',   course: 'BSIT' },
+            { idNumber: '23615047', name: 'Kian Buenaventura', course: 'BSCS' },
+            { idNumber: '23492813', name: 'Tricia Abordo',     course: 'BSIT' },
+            { idNumber: '23837562', name: 'Gio Padilla',       course: 'BSCS' },
+            { idNumber: '23501948', name: 'Bea Florendo',      course: 'BSIT' },
+            { idNumber: '23724036', name: 'Lance Quijano',     course: 'BSCS' },
+            { idNumber: '23683175', name: 'Kyla Tagalog',      course: 'BSIT' },
+            { idNumber: '23956420', name: 'Ren Cañete',        course: 'BSCS' },
+            { idNumber: '23371894', name: 'Gab Ilustrisimo',   course: 'BSIT' },
+            { idNumber: '23209631', name: 'Nicka Pahayahay',   course: 'BSCS' },
         ];
 
         const labs = ['Lab 524', 'Lab 523', 'Lab 530', 'Lab 522', 'Lab 521'];
         const purposes = ['Lab Activity', 'Project Work', 'Research', 'Programming Exercise', 'Finals Review'];
 
-        // Hours per student — varies so leaderboard is interesting
         const sessionPlans = [
             { sessions: 14, hoursEach: [2.5, 3, 1.5, 2, 3.5, 2, 1, 3, 2.5, 2, 1.5, 3, 2, 1] },
             { sessions: 12, hoursEach: [3, 2, 2.5, 3.5, 1.5, 2, 3, 1, 2.5, 2, 3, 1.5] },
@@ -61,29 +64,38 @@
         function makeRecord(student, sitNum, startDate, durationHours, lab, purpose) {
             const start = new Date(startDate);
             const end = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
+            const id = start.getTime() + Math.floor(Math.random() * 1000);
             return {
-                id: start.getTime() + Math.floor(Math.random() * 1000),
-                sitIdNumber: `SIT-${String(sitNum).padStart(4, '0')}`,
-                idNumber: student.idNumber,
-                name: student.name,
-                course: student.course,
-                lab,
-                labName: lab,
-                purpose,
-                startTime: start.toISOString(),
-                endTime: end.toISOString(),
-                status: 'completed',
-                session: 30
+                js: {
+                    id, sitIdNumber: `SIT-${String(sitNum).padStart(4, '0')}`,
+                    idNumber: student.idNumber, name: student.name, course: student.course,
+                    lab, labName: lab, purpose,
+                    startTime: start.toISOString(), endTime: end.toISOString(),
+                    status: 'completed', session: 30
+                },
+                db: {
+                    id, sit_id_number: `SIT-${String(sitNum).padStart(4, '0')}`,
+                    id_number: student.idNumber, name: student.name, course: student.course,
+                    lab, lab_name: lab, purpose,
+                    start_time: start.toISOString(), end_time: end.toISOString(),
+                    status: 'completed', session: 30
+                }
             };
         }
 
-        function seedRecords() {
+        async function seedRecords() {
             document.getElementById('log').innerHTML = '';
-            const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-            const newRecords = [];
-            let sitCounter = existing.length + 1;
+            log('Seeding records to Supabase...\n');
 
-            // Spread records over the past 30 days
+            const { data: existing } = await client.from('sitin_records').select('id');
+            if (existing && existing.length > 0) {
+                log(`Supabase already has ${existing.length} records. Clear first if you want to re-seed.`, true);
+                return;
+            }
+
+            const allJs = [];
+            const allDb = [];
+            let sitCounter = 1;
             const now = new Date();
             let globalDay = 0;
 
@@ -95,30 +107,36 @@
                     const daysAgo = globalDay % 28 + 1;
                     const dateStr = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
                     dateStr.setHours(8 + (j % 4) * 2, 0, 0, 0);
-
                     const lab = labs[(i + j) % labs.length];
                     const purpose = purposes[(i + j) % purposes.length];
                     const rec = makeRecord(student, sitCounter++, dateStr, hrs, lab, purpose);
-                    newRecords.push(rec);
+                    allJs.push(rec.js);
+                    allDb.push(rec.db);
                     totalMins += hrs * 60;
                     globalDay++;
                 });
 
                 const h = Math.floor(totalMins / 60);
                 const m = Math.round(totalMins % 60);
-                log(`[OK] ${student.name} — ${plan.sessions} sessions, ${h}h ${m}m total`);
+                log(`[OK] ${student.name} — ${plan.sessions} sessions, ${h}h ${m}m`);
             });
 
-            const merged = [...existing, ...newRecords];
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-            log(`\nDone! ${newRecords.length} records added. Total: ${merged.length}`);
+            const { error } = await client.from('sitin_records').insert(allDb);
+            if (error) {
+                log(`\nSupabase insert failed: ${error.message}`, true);
+                return;
+            }
+
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(allJs));
+            log(`\nDone! ${allDb.length} records saved to Supabase and localStorage.`);
         }
 
-        function clearRecords() {
-            if (confirm('Clear ALL sit-in records?')) {
-                localStorage.removeItem(STORAGE_KEY);
-                log('Records cleared.');
-            }
+        async function clearRecords() {
+            if (!confirm('Clear ALL sit-in records from Supabase and localStorage?')) return;
+            const { error } = await client.from('sitin_records').delete().neq('id', 0);
+            if (error) { log(`Failed: ${error.message}`, true); return; }
+            localStorage.removeItem(STORAGE_KEY);
+            log('All records cleared.');
         }
     </script>
 </body>

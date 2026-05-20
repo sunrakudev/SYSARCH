@@ -476,6 +476,68 @@ function saveSitInRecords(records) {
     localStorage.setItem(STORAGE_KEYS.SITIN_RECORDS, JSON.stringify(records));
 }
 
+function recordToDb(r) {
+    return {
+        id: r.id,
+        sit_id_number: r.sitIdNumber || null,
+        id_number: r.idNumber || null,
+        name: r.name || null,
+        lab: r.lab || null,
+        lab_name: r.labName || r.lab || null,
+        purpose: r.purpose || null,
+        start_time: r.startTime || null,
+        end_time: r.endTime || null,
+        status: r.status || 'active',
+        session: r.session || null,
+        completed_at: r.completedAt || null,
+        course: r.course || null
+    };
+}
+
+function dbToRecord(r) {
+    return {
+        id: r.id,
+        sitIdNumber: r.sit_id_number,
+        idNumber: r.id_number,
+        name: r.name,
+        lab: r.lab,
+        labName: r.lab_name,
+        purpose: r.purpose,
+        startTime: r.start_time,
+        endTime: r.end_time,
+        status: r.status,
+        session: r.session,
+        completedAt: r.completed_at,
+        course: r.course
+    };
+}
+
+async function syncRecordsFromSupabase() {
+    const client = getSupabaseClient();
+    if (!client) return;
+    const { data, error } = await client.from('sitin_records').select('*');
+    if (error || !data || data.length === 0) return;
+    saveSitInRecords(data.map(dbToRecord));
+}
+
+async function insertRecordToSupabase(record) {
+    const client = getSupabaseClient();
+    if (!client) return;
+    await client.from('sitin_records').upsert(recordToDb(record));
+}
+
+async function updateRecordInSupabase(id, updates) {
+    const client = getSupabaseClient();
+    if (!client) return;
+    await client.from('sitin_records').update(updates).eq('id', id);
+}
+
+async function clearRecordsInSupabase() {
+    const client = getSupabaseClient();
+    if (!client) return;
+    await client.from('sitin_records').delete().neq('id', 0);
+}
+
 function getCurrentSitIns() {
     const sitins = localStorage.getItem(STORAGE_KEYS.SITIN_CURRENT);
     return safeParseJSON(sitins, []);
@@ -490,15 +552,14 @@ function addSitIn(sitinData) {
     sitins.push(sitinData);
     saveCurrentSitIns(sitins);
 
-    // Update lab occupancy
     updateLabOccupancy();
 
-    // Also save to history
+    const record = { ...sitinData, status: 'active', completedAt: null };
     const records = getSitInRecords();
-    records.push({ ...sitinData, status: 'active', completedAt: null });
+    records.push(record);
     saveSitInRecords(records);
+    insertRecordToSupabase(record);
 
-    // Note: Sessions are NOT deducted here - only when student checks out
     return { success: true };
 }
 
@@ -543,12 +604,11 @@ function approveSitInRequest(requestId) {
     // Update lab occupancy
     updateLabOccupancy();
 
-    // Save to history
     const records = getSitInRecords();
     records.push(activeRequest);
     saveSitInRecords(records);
+    insertRecordToSupabase(activeRequest);
 
-    // Note: Sessions are NOT deducted here - only when student checks out
     return { success: true, message: 'Request approved.' };
 }
 
@@ -577,16 +637,21 @@ function removeSitIn(id) {
     // Update lab occupancy
     updateLabOccupancy();
 
-    // Update history record and deduct session
     if (sitin) {
         const records = getSitInRecords();
         const recordIndex = records.findIndex(r => r.id === id);
+        const endTime = new Date().toISOString();
         if (recordIndex !== -1) {
             records[recordIndex].status = 'completed';
-            records[recordIndex].completedAt = new Date().toISOString();
-            records[recordIndex].endTime = new Date().toISOString();
+            records[recordIndex].completedAt = endTime;
+            records[recordIndex].endTime = endTime;
             saveSitInRecords(records);
         }
+        updateRecordInSupabase(id, {
+            status: 'completed',
+            end_time: endTime,
+            completed_at: endTime
+        });
 
         // Deduct 1 session from student's remaining sessions
         const users = getUsers();
@@ -1981,13 +2046,13 @@ function initAdminLogin() {
     });
 }
 
-function initAdminDashboard() {
+async function initAdminDashboard() {
     if (!isAdminLoggedIn()) {
         window.location.href = 'adminlogin.html';
         return;
     }
 
-    // Initialize admin dropdowns
+    await syncRecordsFromSupabase();
     initAdminDropdowns();
 
     // Load statistics
@@ -2794,13 +2859,13 @@ function openStudentModal(student = null) {
     modal.style.display = 'flex';
 }
 
-function initAdminSitIn() {
+async function initAdminSitIn() {
     if (!isAdminLoggedIn()) {
         window.location.href = 'adminlogin.html';
         return;
     }
 
-    // Load current sit-ins table
+    await syncRecordsFromSupabase();
     loadSitInTable();
 
     // Search functionality
@@ -3152,13 +3217,13 @@ function populateManualSitInLabSelect() {
 // Admin Records Page Functions
 // ============================================
 
-function initAdminRecords() {
+async function initAdminRecords() {
     if (!isAdminLoggedIn()) {
         window.location.href = 'adminlogin.html';
         return;
     }
 
-    // Initialize admin dropdowns
+    await syncRecordsFromSupabase();
     initAdminDropdowns();
 
     loadRecordsTable();
@@ -3182,6 +3247,7 @@ function initAdminRecords() {
                 saveSitInRecords([]);
                 saveCurrentSitIns([]);
                 updateLabOccupancy();
+                clearRecordsInSupabase();
                 loadRecordsTable();
                 showMessage('All records cleared!', 'success');
             }
@@ -5545,6 +5611,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     } else if (currentPage === 'loginpage.html') {
         initLoginForm();
     } else if (currentPage === 'index.html' || currentPage === '') {
+        await syncRecordsFromSupabase();
         updateLandingPageForLoggedInUser();
         loadPublicLeaderboard();
     } else if (currentPage === 'editprofile.html') {
