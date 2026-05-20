@@ -14,7 +14,8 @@ const STORAGE_KEYS = {
     SITIN_RECORDS: 'ccs_sitin_records',
     SITIN_CURRENT: 'ccs_sitin_current',
     LAB_ROOMS: 'ccs_lab_rooms',
-    RESERVATION_ENABLED: 'ccs_reservation_enabled'
+    RESERVATION_ENABLED: 'ccs_reservation_enabled',
+    STUDENT_OVERRIDES: 'ccs_student_overrides'
 };
 
 const SUPABASE_CONFIG = {
@@ -127,6 +128,40 @@ function getUsers() {
 
 function saveUsers(users) {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+}
+
+function getStudentOverrides() {
+    const overrides = localStorage.getItem(STORAGE_KEYS.STUDENT_OVERRIDES);
+    return safeParseJSON(overrides, {});
+}
+
+function saveStudentOverrides(overrides) {
+    localStorage.setItem(STORAGE_KEYS.STUDENT_OVERRIDES, JSON.stringify(overrides));
+}
+
+function saveStudentOverride(idNumber, studentData) {
+    const overrides = getStudentOverrides();
+    overrides[idNumber] = {
+        ...(overrides[idNumber] || {}),
+        ...studentData,
+        idNumber,
+        updatedAt: new Date().toISOString()
+    };
+    saveStudentOverrides(overrides);
+}
+
+function removeStudentOverride(idNumber) {
+    const overrides = getStudentOverrides();
+    delete overrides[idNumber];
+    saveStudentOverrides(overrides);
+}
+
+function applyStudentOverrides(users) {
+    const overrides = getStudentOverrides();
+    return users.map(user => {
+        const override = overrides[user.idNumber];
+        return override ? { ...user, ...override, idNumber: user.idNumber } : user;
+    });
 }
 
 function getCurrentUser() {
@@ -748,6 +783,7 @@ async function updateStudent(idNumber, studentData) {
 
     users[userIndex] = { ...users[userIndex], ...studentData };
     saveUsers(users);
+    saveStudentOverride(idNumber, users[userIndex]);
     return { success: true, message: 'Student updated successfully!' };
 }
 
@@ -766,6 +802,7 @@ async function deleteStudent(idNumber) {
 
     const filtered = users.filter(u => u.idNumber !== idNumber);
     saveUsers(filtered);
+    removeStudentOverride(idNumber);
 
     // Also remove from current sit-ins
     const sitins = getCurrentSitIns();
@@ -1620,7 +1657,7 @@ function loadAdminSessionsTable() {
     if (!tbody) return;
 
     const records = getSitInRecords();
-    const students = getUsers();
+    const students = getDashboardStudents();
     const sorted = records.sort((a, b) => new Date(b.startTime || 0) - new Date(a.startTime || 0));
 
     if (sorted.length === 0) {
@@ -1630,7 +1667,7 @@ function loadAdminSessionsTable() {
 
     tbody.innerHTML = sorted.map(s => {
         const student   = students.find(st => st.idNumber === s.idNumber);
-        const name      = student ? `${student.firstName} ${student.lastName}` : s.idNumber;
+        const name      = student ? `${student.firstName} ${student.lastName}`.trim() : (s.name || s.idNumber);
         const startDate = s.startTime ? new Date(s.startTime) : null;
         const endDate   = s.endTime   ? new Date(s.endTime)   : null;
         const dateStr   = startDate ? startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
@@ -2053,6 +2090,7 @@ async function initAdminDashboard() {
     }
 
     await syncRecordsFromSupabase();
+    await syncStudentsFromSupabase();
     initAdminDropdowns();
 
     // Load statistics
@@ -2174,8 +2212,8 @@ async function initAdminDashboard() {
 }
 
 function loadDashboardStats() {
-    const users = getUsers();
-    const sitIns = getCurrentSitIns();
+    const users = getDashboardStudents();
+    const sitIns = getDashboardCurrentSitIns();
     const totalStudents = users.length;
     const currentSitIn = sitIns.length;
     const totalSitIns = getSitInRecords().length;
@@ -2322,9 +2360,9 @@ function updateReservationToggleUI() {
 // ============================================
 
 function loadDashboardAnalytics() {
-    const users = getUsers();
+    const users = getDashboardStudents();
     const records = getSitInRecords();
-    const currentSitIns = getCurrentSitIns();
+    const currentSitIns = getDashboardCurrentSitIns();
     const reservations = getReservations();
     const labs = getLabRooms();
     const feedbackList = getFeedback();
@@ -2404,7 +2442,7 @@ function loadDashboardLeaderboard() {
 
 function buildLeaderboardEntries() {
     const records = getSitInRecords();
-    const users = getUsers();
+    const users = getDashboardStudents();
     const sessionCounts = {};
     const sessionDurations = {};
     const sessionNames = {};
@@ -2504,9 +2542,56 @@ async function syncStudentsFromSupabase() {
     const { data: students, error } = await client.from('students').select('*');
     if (error || !students || students.length === 0) return;
 
-    const mapped = students.map(dbStudentToUser);
+    const mapped = applyStudentOverrides(students.map(dbStudentToUser));
     saveUsers(mapped);
     return mapped;
+}
+
+function getDashboardStudents() {
+    const usersById = {};
+
+    getUsers().forEach(user => {
+        if (!user?.idNumber) return;
+        usersById[user.idNumber] = user;
+    });
+
+    getSitInRecords().forEach(record => {
+        if (!record?.idNumber || usersById[record.idNumber]) return;
+
+        const nameParts = String(record.name || '').trim().split(/\s+/).filter(Boolean);
+        usersById[record.idNumber] = {
+            idNumber: record.idNumber,
+            firstName: nameParts[0] || record.idNumber,
+            lastName: nameParts.slice(1).join(' ') || '',
+            middleName: '',
+            course: record.course || '',
+            courseLevel: '',
+            remainingSessions: 0,
+            registeredAt: record.startTime || record.completedAt || new Date().toISOString()
+        };
+    });
+
+    return Object.values(usersById);
+}
+
+function getDashboardCurrentSitIns() {
+    const sitInsByKey = {};
+
+    getCurrentSitIns().forEach(sitin => {
+        const key = sitin?.id || sitin?.sitIdNumber || sitin?.idNumber;
+        if (!key) return;
+        sitInsByKey[key] = sitin;
+    });
+
+    getSitInRecords()
+        .filter(record => record?.status === 'active')
+        .forEach(record => {
+            const key = record.id || record.sitIdNumber || record.idNumber;
+            if (!key || sitInsByKey[key]) return;
+            sitInsByKey[key] = record;
+        });
+
+    return Object.values(sitInsByKey);
 }
 
 async function initAdminStudents() {
