@@ -466,29 +466,55 @@ function deleteAnnouncement(id) {
 
 function getDefaultLabRooms() {
     return [
-        { id: 'lab-530', name: 'Lab 530', capacity: 40, status: 'available', currentOccupancy: 0 },
-        { id: 'lab-524', name: 'Lab 524', capacity: 40, status: 'available', currentOccupancy: 0 },
-        { id: 'lab-523', name: 'Lab 523', capacity: 40, status: 'available', currentOccupancy: 0 },
-        { id: 'lab-522', name: 'Lab 522', capacity: 40, status: 'available', currentOccupancy: 0 },
-        { id: 'lab-521', name: 'Lab 521', capacity: 40, status: 'available', currentOccupancy: 0 },
-        { id: 'lab-520', name: 'Lab 520', capacity: 40, status: 'available', currentOccupancy: 0 },
-        { id: 'lab-519', name: 'Lab 519', capacity: 40, status: 'available', currentOccupancy: 0 },
-        { id: 'lab-518', name: 'Lab 518', capacity: 40, status: 'available', currentOccupancy: 0 },
-        { id: 'lab-517', name: 'Lab 517', capacity: 40, status: 'available', currentOccupancy: 0 },
-        { id: 'lab-516', name: 'Lab 516', capacity: 40, status: 'available', currentOccupancy: 0 },
-        { id: 'lab-515', name: 'Lab 515', capacity: 40, status: 'available', currentOccupancy: 0 },
-        { id: 'lab-514', name: 'Lab 514', capacity: 40, status: 'available', currentOccupancy: 0 }
+        { id: 'lab-530', name: 'Lab 530', capacity: 40, status: 'available', currentOccupancy: 0, software: [] },
+        { id: 'lab-524', name: 'Lab 524', capacity: 40, status: 'available', currentOccupancy: 0, software: [] },
+        { id: 'lab-523', name: 'Lab 523', capacity: 40, status: 'available', currentOccupancy: 0, software: [] },
+        { id: 'lab-522', name: 'Lab 522', capacity: 40, status: 'available', currentOccupancy: 0, software: [] },
+        { id: 'lab-521', name: 'Lab 521', capacity: 40, status: 'available', currentOccupancy: 0, software: [] },
+        { id: 'lab-520', name: 'Lab 520', capacity: 40, status: 'available', currentOccupancy: 0, software: [] },
+        { id: 'lab-519', name: 'Lab 519', capacity: 40, status: 'available', currentOccupancy: 0, software: [] },
+        { id: 'lab-518', name: 'Lab 518', capacity: 40, status: 'available', currentOccupancy: 0, software: [] },
+        { id: 'lab-517', name: 'Lab 517', capacity: 40, status: 'available', currentOccupancy: 0, software: [] },
+        { id: 'lab-516', name: 'Lab 516', capacity: 40, status: 'available', currentOccupancy: 0, software: [] },
+        { id: 'lab-515', name: 'Lab 515', capacity: 40, status: 'available', currentOccupancy: 0, software: [] },
+        { id: 'lab-514', name: 'Lab 514', capacity: 40, status: 'available', currentOccupancy: 0, software: [] }
     ];
+}
+
+function normalizeLabRoom(lab) {
+    const validStatuses = ['available', 'occupied', 'maintenance'];
+    const capacity = parseInt(lab?.capacity, 10);
+    const occupancy = parseInt(lab?.currentOccupancy, 10);
+
+    return {
+        id: lab?.id || 'lab-' + Date.now(),
+        name: lab?.name || 'Unnamed Lab',
+        capacity: Number.isFinite(capacity) && capacity > 0 ? capacity : 40,
+        status: validStatuses.includes(lab?.status) ? lab.status : 'available',
+        currentOccupancy: Number.isFinite(occupancy) && occupancy >= 0 ? occupancy : 0,
+        software: Array.isArray(lab?.software) ? lab.software.filter(Boolean) : []
+    };
 }
 
 function getLabRooms() {
     const labs = localStorage.getItem(STORAGE_KEYS.LAB_ROOMS);
-    if (labs) return safeParseJSON(labs, getDefaultLabRooms());
+    if (labs) {
+        const parsed = safeParseJSON(labs, getDefaultLabRooms());
+        return Array.isArray(parsed) ? parsed.map(normalizeLabRoom) : getDefaultLabRooms();
+    }
     return getDefaultLabRooms();
 }
 
 function saveLabRooms(labs) {
-    localStorage.setItem(STORAGE_KEYS.LAB_ROOMS, JSON.stringify(labs));
+    const normalizedLabs = Array.isArray(labs) ? labs.map(normalizeLabRoom) : getDefaultLabRooms();
+    localStorage.setItem(STORAGE_KEYS.LAB_ROOMS, JSON.stringify(normalizedLabs));
+    return normalizedLabs;
+}
+
+function getLabDisplayStatus(lab) {
+    if (lab.status === 'maintenance') return 'maintenance';
+    if (lab.status === 'occupied' || lab.currentOccupancy >= lab.capacity) return 'occupied';
+    return 'available';
 }
 
 function updateLabOccupancy() {
@@ -505,29 +531,16 @@ function updateLabOccupancy() {
         const lab = labs.find(l => l.name === sitin.lab || l.id === sitin.labId);
         if (lab) {
             lab.currentOccupancy++;
-            // Update status based on occupancy
-            if (lab.currentOccupancy >= lab.capacity) {
-                lab.status = 'occupied';
-            } else if (lab.currentOccupancy > 0) {
-                lab.status = 'available';
-            }
         }
     });
-    
-    // Update lab status
-    labs.forEach(lab => {
-        if (lab.currentOccupancy === 0 && lab.status !== 'maintenance') {
-            lab.status = 'available';
-        }
-    });
-    
+
     saveLabRooms(labs);
     return labs;
 }
 
 function getAvailableLabs() {
     const labs = updateLabOccupancy();
-    return labs.filter(lab => lab.status === 'available' && lab.currentOccupancy < lab.capacity);
+    return labs.filter(lab => getLabDisplayStatus(lab) === 'available' && lab.currentOccupancy < lab.capacity);
 }
 
 function updateLabStatus(labId, status) {
@@ -546,7 +559,8 @@ function addLab(labData) {
         name: labData.name,
         capacity: labData.capacity || 40,
         status: labData.status || 'available',
-        currentOccupancy: 0
+        currentOccupancy: 0,
+        software: []
     };
     labs.push(newLab);
     saveLabRooms(labs);
@@ -1381,7 +1395,7 @@ function openReserveModal(user) {
     const labSelect = document.getElementById('reserve-lab');
     if (!modal || !labSelect) return;
 
-    const labs = getLabRooms().filter(l => l.status !== 'maintenance' && l.status !== 'closed');
+    const labs = updateLabOccupancy().filter(l => getLabDisplayStatus(l) === 'available' && l.currentOccupancy < l.capacity);
     labSelect.innerHTML = '<option value="">-- Choose an available lab --</option>';
     if (labs.length === 0) {
         labSelect.innerHTML = '<option value="" disabled>No labs available right now</option>';
@@ -1389,8 +1403,7 @@ function openReserveModal(user) {
         labs.forEach(lab => {
             const opt = document.createElement('option');
             opt.value = lab.id;
-            const statusNote = lab.status === 'available' ? '' : ` — ${lab.status}`;
-            opt.textContent = `${lab.name} (Cap: ${lab.capacity || 'N/A'}${statusNote})`;
+            opt.textContent = `${lab.name} (Cap: ${lab.capacity || 'N/A'})`;
             labSelect.appendChild(opt);
         });
     }
@@ -1785,10 +1798,9 @@ function loadUserLabAvailability() {
 
     container.innerHTML = labs.map(lab => {
         const pct = lab.capacity > 0 ? Math.min(100, Math.round((lab.currentOccupancy / lab.capacity) * 100)) : 0;
-        const isUnavailable = lab.status === 'maintenance' || lab.status === 'closed';
-        const isFull = !isUnavailable && pct >= 100;
-        const statusClass = isUnavailable ? 'ulab-maintenance' : isFull ? 'ulab-full' : 'ulab-available';
-        const statusText = isUnavailable ? lab.status : isFull ? 'Full' : 'Available';
+        const displayStatus = getLabDisplayStatus(lab);
+        const statusClass = displayStatus === 'maintenance' ? 'ulab-maintenance' : displayStatus === 'occupied' ? 'ulab-full' : 'ulab-available';
+        const statusText = displayStatus === 'occupied' ? 'Full' : displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1);
         const softwareTags = (lab.software || []).length > 0
             ? `<div class="ulab-software">${(lab.software).map(s => `<span class="ulab-software-tag">${escapeHTML(s)}</span>`).join('')}</div>`
             : '';
@@ -2456,7 +2468,7 @@ function loadDashboardAnalytics() {
     const avgRating = feedbackList.length > 0
         ? (feedbackList.reduce((s, f) => s + (f.rating || 0), 0) / feedbackList.length).toFixed(1)
         : '0.0';
-    const availableLabs = labs.filter(l => l.status === 'available').length;
+    const availableLabs = labs.filter(l => getLabDisplayStatus(l) === 'available').length;
 
     const totalMs = completedRecords.reduce((sum, r) => {
         if (r.startTime && r.endTime) return sum + (new Date(r.endTime) - new Date(r.startTime));
@@ -3252,8 +3264,8 @@ function populateLabSelectForRequest() {
     const labSelect = document.getElementById('request-lab-select');
     if (!labSelect) return;
 
-    const labs = getLabRooms();
-    const availableLabs = labs.filter(lab => lab.status !== 'maintenance' && lab.currentOccupancy < lab.capacity);
+    const labs = updateLabOccupancy();
+    const availableLabs = labs.filter(lab => getLabDisplayStatus(lab) === 'available' && lab.currentOccupancy < lab.capacity);
 
     if (availableLabs.length === 0) {
         labSelect.innerHTML = '<option value="">-- No Labs Available --</option>';
@@ -3273,8 +3285,8 @@ function populateAdminLabSelect() {
     const labSelect = document.getElementById('manual-sitin-lab');
     if (!labSelect) return;
 
-    const labs = getLabRooms();
-    const availableLabs = labs.filter(lab => lab.status !== 'maintenance' && lab.currentOccupancy < lab.capacity);
+    const labs = updateLabOccupancy();
+    const availableLabs = labs.filter(lab => getLabDisplayStatus(lab) === 'available' && lab.currentOccupancy < lab.capacity);
 
     if (availableLabs.length === 0) {
         labSelect.innerHTML = '<option value="">-- No Labs Available --</option>';
@@ -3356,8 +3368,8 @@ function populateLabSelectForRequestStudentsPage() {
     const labSelect = document.getElementById('request-lab-select');
     if (!labSelect) return;
 
-    const labs = getLabRooms();
-    const availableLabs = labs.filter(lab => lab.status !== 'maintenance' && lab.currentOccupancy < lab.capacity);
+    const labs = updateLabOccupancy();
+    const availableLabs = labs.filter(lab => getLabDisplayStatus(lab) === 'available' && lab.currentOccupancy < lab.capacity);
 
     if (availableLabs.length === 0) {
         labSelect.innerHTML = '<option value="">-- No Labs Available --</option>';
@@ -3377,8 +3389,8 @@ function populateManualSitInLabSelect() {
     const labSelect = document.getElementById('manual-sitin-lab');
     if (!labSelect) return;
 
-    const labs = getLabRooms();
-    const availableLabs = labs.filter(lab => lab.status !== 'maintenance' && lab.currentOccupancy < lab.capacity);
+    const labs = updateLabOccupancy();
+    const availableLabs = labs.filter(lab => getLabDisplayStatus(lab) === 'available' && lab.currentOccupancy < lab.capacity);
 
     if (availableLabs.length === 0) {
         labSelect.innerHTML = '<option value="">-- No Labs Available --</option>';
@@ -3466,8 +3478,8 @@ function loadPendingRequests() {
     if (!tbody) return;
 
     const requests = getSitinRequests();
-    const labs = getLabRooms();
-    const availableLabs = labs.filter(lab => lab.status !== 'maintenance' && lab.currentOccupancy < lab.capacity);
+    const labs = updateLabOccupancy();
+    const availableLabs = labs.filter(lab => getLabDisplayStatus(lab) === 'available' && lab.currentOccupancy < lab.capacity);
 
     if (requests.length === 0) {
         tbody.innerHTML = '';
@@ -3888,9 +3900,12 @@ function initAdminLabs() {
                 const labs = getLabRooms();
                 const labIndex = labs.findIndex(l => l.id === editLabId);
                 if (labIndex !== -1) {
-                    labs[labIndex].name = labName;
-                    labs[labIndex].capacity = labCapacity;
-                    labs[labIndex].status = labStatus;
+                    labs[labIndex] = {
+                        ...labs[labIndex],
+                        name: labName,
+                        capacity: labCapacity,
+                        status: labStatus
+                    };
                     saveLabRooms(labs);
                     showMessage('Lab updated successfully!', 'success');
                 }
@@ -3936,14 +3951,16 @@ function loadLabManagementGrid() {
 
     grid.innerHTML = labs.map(lab => {
         const software = lab.software || [];
+        const displayStatus = getLabDisplayStatus(lab);
         const softwareTags = software.length > 0
             ? software.map(s => `<span class="lab-software-tag">${escapeHTML(s)}</span>`).join('')
             : '<span style="font-size:0.78rem;opacity:0.5">No software listed</span>';
+        const occupancyPercent = lab.capacity > 0 ? Math.min(100, (lab.currentOccupancy / lab.capacity) * 100) : 0;
         return `
-        <div class="lab-management-card ${lab.status}">
+        <div class="lab-management-card ${displayStatus}">
             <div class="lab-mgmt-header">
-                <h4>${lab.name}</h4>
-                <span class="lab-mgmt-status ${lab.status}-status">${lab.status}</span>
+                <h4>${escapeHTML(lab.name)}</h4>
+                <span class="lab-mgmt-status ${displayStatus}-status">${displayStatus}</span>
             </div>
             <div class="lab-mgmt-info">
                 <p><strong>Capacity:</strong> ${lab.capacity}</p>
@@ -3953,7 +3970,7 @@ function loadLabManagementGrid() {
             <div class="lab-software-tags">${softwareTags}</div>
             <div class="lab-mgmt-progress">
                 <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${(lab.currentOccupancy / lab.capacity) * 100}%"></div>
+                    <div class="progress-fill" style="width: ${occupancyPercent}%"></div>
                 </div>
             </div>
             <div class="lab-mgmt-actions">
@@ -4040,11 +4057,12 @@ function saveSoftware() {
     const checked = Array.from(document.querySelectorAll('#software-checklist input[type="checkbox"]:checked')).map(cb => cb.value);
     const custom = Array.from(document.querySelectorAll('#software-custom-list .software-custom-tag')).map(t => t.dataset.name);
 
-    lab.software = [...checked, ...custom];
+    lab.software = Array.from(new Set([...checked, ...custom]));
     saveLabRooms(labs);
 
     document.getElementById('software-modal').style.display = 'none';
     loadLabManagementGrid();
+    updateLabStats();
     showMessage('Software updated!', 'success');
 }
 
@@ -4114,8 +4132,8 @@ function openAddLabModal(lab = null) {
 function updateLabStats() {
     const labs = updateLabOccupancy();
     const totalLabs = labs.length;
-    const availableLabs = labs.filter(l => l.status === 'available').length;
-    const maintenanceLabs = labs.filter(l => l.status === 'maintenance').length;
+    const availableLabs = labs.filter(l => getLabDisplayStatus(l) === 'available').length;
+    const maintenanceLabs = labs.filter(l => getLabDisplayStatus(l) === 'maintenance').length;
     const totalOccupancy = labs.reduce((sum, l) => sum + l.currentOccupancy, 0);
 
     const totalLabsEl = document.getElementById('total-labs');
@@ -4322,10 +4340,10 @@ function populateLabSelect() {
     const labSelect = document.getElementById('selected-lab');
     if (!labSelect) return;
 
-    const labs = getLabRooms();
+    const labs = updateLabOccupancy();
 
     // Filter to only show available labs (not in maintenance)
-    const availableLabs = labs.filter(lab => lab.status !== 'maintenance');
+    const availableLabs = labs.filter(lab => getLabDisplayStatus(lab) === 'available');
 
     if (availableLabs.length === 0) {
         labSelect.innerHTML = '<option value="">-- No Labs Available --</option>';
@@ -5222,14 +5240,14 @@ function populateReservationLabSelect() {
     const labSelect = document.getElementById('reservation-lab');
     if (!labSelect) return;
 
-    const labs = getLabRooms();
+    const labs = updateLabOccupancy();
     labSelect.innerHTML = '<option value="">Select Lab</option>';
     
     labs.forEach(lab => {
         const option = document.createElement('option');
         option.value = lab.name;
         option.textContent = `${lab.name} (Capacity: ${lab.capacity})`;
-        if (lab.status !== 'available') {
+        if (getLabDisplayStatus(lab) !== 'available') {
             option.disabled = true;
             option.textContent += ' - Unavailable';
         }
