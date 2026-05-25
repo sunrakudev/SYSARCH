@@ -3619,8 +3619,8 @@ nav {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    background: var(--surface, #2d3748);
-    border: 1px solid var(--border-color, #3a4556);
+    background: var(--card-bg);
+    border: 1px solid var(--border-light);
     border-radius: 8px;
     padding: 0.6rem 0.85rem;
     transition: transform 0.15s;
